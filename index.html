@@ -78,11 +78,37 @@
             backdrop-filter: blur(4px);
             border: 1px solid rgba(74,222,128,0.15);
             line-height: 1.8;
-            min-width: 180px;
+            min-width: 200px;
         }
         #hud .label { color: rgba(255,255,255,0.5); }
         #hud .value { color: #4ade80; float: right; }
+        #hud .compass { color: #60a5fa; }
         #hud .speed-indicator { color: #fbbf24; }
+
+        /* 屏幕中心十字准星 */
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px; height: 20px;
+            pointer-events: none;
+            z-index: 40;
+            opacity: 0.7;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.8);
+        }
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
+        #crosshair .dot {
+            position: absolute;
+            top: 8px; left: 8px;
+            width: 4px; height: 4px;
+            background: rgba(255,100,100,0.9);
+            border-radius: 50%;
+        }
 
         /* 加载动画 */
         #loading {
@@ -133,6 +159,7 @@
 </head>
 <body>
     <div id="canvas-container"></div>
+    <div id="crosshair"><div class="dot"></div></div>
 
     <div id="info">
         <h1>3DGS 实时漫游 Demo</h1>
@@ -151,6 +178,10 @@
         <div>Y <span class="value" id="pos-y">0.00</span></div>
         <div>Z <span class="value" id="pos-z">0.00</span></div>
         <div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;">
+            <span class="label compass">朝向</span>
+            <span class="value compass" id="compass">N 0°</span>
+        </div>
+        <div>
             <span class="label speed-indicator">移速</span>
             <span class="value speed-indicator" id="speed-indicator">正常</span>
         </div>
@@ -186,12 +217,44 @@
         const loading = document.getElementById('loading');
         const modeToast = document.getElementById('mode-toast');
 
+        // ===== Three.js 场景辅助对象 =====
+        const threeScene = new THREE.Scene();
+
+        // 地面网格：帮助判断方向和地面位置
+        const gridHelper = new THREE.GridHelper(40, 40, 0x555555, 0x333333);
+        // 场景Y轴负方向为上，地面约在Y=0，把网格放在稍微"下方"一点避免z-fighting
+        gridHelper.position.set(0, 0.02, 0);
+        threeScene.add(gridHelper);
+
+        // 参考平面（半透明地面）
+        const planeGeo = new THREE.PlaneGeometry(200, 200);
+        const planeMat = new THREE.MeshBasicMaterial({
+            color: 0x0a0a0a,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.4
+        });
+        const groundPlane = new THREE.Mesh(planeGeo, planeMat);
+        // 平面默认是竖直的，需要旋转为水平
+        // 根据cameraUp，Y轴负方向为上。这里我们让平面平铺在Y=0
+        groundPlane.rotation.x = Math.PI; // 翻转一下
+        groundPlane.position.set(0, 0.01, 0);
+        threeScene.add(groundPlane);
+
+        // 坐标轴辅助（小巧一点）
+        const axesHelper = new THREE.AxesHelper(2);
+        axesHelper.position.set(0, 0.05, 0);
+        threeScene.add(axesHelper);
+
         // ===== Viewer 初始化 =====
+        // 场景Y轴负方向为上，地面约在Y=0，人眼高度约Y=-1.6（比地面高1.6个单位）
         const viewer = new GaussianSplats3D.Viewer({
             'rootElement': container,
+            'threeScene': threeScene,
             'cameraUp': [0, -1, -0.6],
-            'initialCameraPosition': [-1, -4, 6],
-            'initialCameraLookAt': [0, 4, 0],
+            // 初始位置：站在场景中后方，高度-1.6（地面以上），平视前方
+            'initialCameraPosition': [0, -1.6, 8],
+            'initialCameraLookAt': [0, -1.6, 0],
             'sharedMemoryForWorkers': false,
             'gpuAcceleratedSort': false,
             'integerBasedSort': true,
@@ -205,7 +268,6 @@
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             keys[e.code] = true;
-            // 防止方向键滚动页面
             if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.key)) {
                 e.preventDefault();
             }
@@ -216,8 +278,14 @@
         });
 
         // ===== 游客漫游系统 =====
-        const moveSpeedNormal = 0.03;
-        const moveSpeedFast = 0.08;
+        const moveSpeedNormal = 0.04;
+        const moveSpeedFast = 0.10;
+        // 人眼高度范围：Y轴负方向为上，所以数值越小越高
+        // 地面约Y=0，人眼应在Y=-1.4 ~ -1.8之间（高于地面）
+        const eyeHeight = -1.6;
+        const minHeight = -2.2;  // 最低（最高处）
+        const maxHeight = -0.8;  // 最高（最低处，接近地面）
+
         const tmpVec = new THREE.Vector3();
         const tmpForward = new THREE.Vector3();
         const tmpRight = new THREE.Vector3();
@@ -226,7 +294,18 @@
         function showToast(msg) {
             modeToast.textContent = msg;
             modeToast.classList.add('show');
-            setTimeout(() => modeToast.classList.remove('show'), 1200);
+            setTimeout(() => modeToast.classList.remove('show'), 1500);
+        }
+
+        function getCompassHeading(direction) {
+            // 计算偏航角（相对于Z轴负方向）
+            const angle = Math.atan2(direction.x, direction.z);
+            let deg = angle * (180 / Math.PI);
+            deg = (deg + 360) % 360;
+            // 转换为指南针方向
+            const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+            const idx = Math.round(deg / 45) % 8;
+            return `${dirs[idx]} ${Math.round(deg)}°`;
         }
 
         function updateMovement() {
@@ -237,16 +316,19 @@
             const isShift = keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight'];
             const speed = isShift ? moveSpeedFast : moveSpeedNormal;
 
-            // 获取相机水平朝向
+            // 获取相机水平朝向（忽略俯仰，只看偏航）
             camera.getWorldDirection(tmpForward);
+            // 保持水平：在这个坐标系里，Y轴负方向是上，所以水平面是XZ平面
+            // 我们把Y分量归0，然后重新归一化
+            const originalY = tmpForward.y;
             tmpForward.y = 0;
             if (tmpForward.lengthSq() < 0.0001) {
-                // 如果相机垂直朝天/地，用默认前方
+                // 如果相机垂直朝天/地，用默认前方（-Z方向）
                 tmpForward.set(0, 0, -1);
             }
             tmpForward.normalize();
 
-            // 右向量 = forward × up
+            // 右向量 = forward × worldUp
             tmpRight.crossVectors(tmpForward, tmpUp).normalize();
 
             let moved = false;
@@ -275,10 +357,31 @@
                 controls.target.add(tmpVec);
             }
 
+            // 强制保持人眼高度：始终让相机Y处于eyeHeight附近
+            // 这样玩家不会飞天或入地
+            if (camera.position.y > maxHeight) {
+                const fix = maxHeight - camera.position.y;
+                camera.position.y += fix;
+                controls.target.y += fix;
+            }
+            if (camera.position.y < minHeight) {
+                const fix = minHeight - camera.position.y;
+                camera.position.y += fix;
+                controls.target.y += fix;
+            }
+
+            // 让相机始终平视（目标点与相机同高度）
+            // 这样鼠标旋转时不会上下乱翻
+            controls.target.y = camera.position.y;
+
             // 更新 HUD
             document.getElementById('pos-x').textContent = camera.position.x.toFixed(2);
             document.getElementById('pos-y').textContent = camera.position.y.toFixed(2);
             document.getElementById('pos-z').textContent = camera.position.z.toFixed(2);
+
+            const camDir = new THREE.Vector3();
+            camera.getWorldDirection(camDir);
+            document.getElementById('compass').textContent = getCompassHeading(camDir);
             document.getElementById('speed-indicator').textContent = isShift ? '加速 ⚡' : '正常';
             document.getElementById('speed-indicator').style.color = isShift ? '#f87171' : '#fbbf24';
         }
@@ -301,7 +404,7 @@
             loading.style.display = 'none';
             viewer.start();
             gameLoop();
-            showToast('🎮 WASD 开始漫游');
+            showToast('🎮 WASD 开始漫游 · 地面在脚下');
         })
         .catch((err) => {
             loading.innerHTML = '<div style="color:#ff6b6b">加载失败: ' + err.message + '</div>';
