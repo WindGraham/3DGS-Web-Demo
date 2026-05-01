@@ -8,21 +8,83 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
         #canvas-container { width: 100%; height: 100%; }
+
+        /* 左上角信息面板 */
         #info {
             position: absolute;
-            top: 16px;
-            left: 16px;
+            top: 16px; left: 16px;
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            font-size: 14px;
+            font-size: 13px;
+            background: rgba(0,0,0,0.55);
+            padding: 14px 18px;
+            border-radius: 10px;
+            pointer-events: none;
+            line-height: 1.7;
+            max-width: 300px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        #info h1 { font-size: 15px; margin-bottom: 6px; font-weight: 600; }
+        #info .tag {
+            display: inline-block;
+            background: rgba(59,130,246,0.25);
+            color: #93c5fd;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 4px;
+            border: 1px solid rgba(59,130,246,0.3);
+        }
+
+        /* 左下角操作提示 */
+        #controls-hint {
+            position: absolute;
+            bottom: 16px; left: 16px;
+            color: rgba(255,255,255,0.85);
+            font-family: sans-serif;
+            font-size: 12px;
             background: rgba(0,0,0,0.5);
             padding: 12px 16px;
-            border-radius: 8px;
+            border-radius: 10px;
             pointer-events: none;
-            line-height: 1.6;
-            max-width: 320px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.08);
+            line-height: 1.8;
         }
-        #info h1 { font-size: 16px; margin-bottom: 6px; }
+        .key {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin: 0 1px;
+            border: 1px solid rgba(255,255,255,0.2);
+            min-width: 20px;
+            text-align: center;
+        }
+
+        /* 右上角坐标 HUD */
+        #hud {
+            position: absolute;
+            top: 16px; right: 16px;
+            color: #4ade80;
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
+            font-size: 12px;
+            background: rgba(0,0,0,0.6);
+            padding: 12px 16px;
+            border-radius: 10px;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(74,222,128,0.15);
+            line-height: 1.8;
+            min-width: 180px;
+        }
+        #hud .label { color: rgba(255,255,255,0.5); }
+        #hud .value { color: #4ade80; float: right; }
+        #hud .speed-indicator { color: #fbbf24; }
+
+        /* 加载动画 */
         #loading {
             position: absolute;
             top: 50%; left: 50%;
@@ -31,33 +93,82 @@
             font-family: sans-serif;
             font-size: 18px;
             text-align: center;
+            z-index: 100;
         }
         .spinner {
-            width: 40px; height: 40px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top-color: #fff;
+            width: 44px; height: 44px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #3b82f6;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 12px;
+            animation: spin 0.9s linear infinite;
+            margin: 0 auto 16px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        #loading .sub {
+            font-size: 13px;
+            opacity: 0.6;
+            margin-top: 10px;
+        }
+
+        /* 模式提示 */
+        #mode-toast {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-family: sans-serif;
+            font-size: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 16px 32px;
+            border-radius: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 50;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        #mode-toast.show { opacity: 1; }
     </style>
 </head>
 <body>
     <div id="canvas-container"></div>
+
     <div id="info">
         <h1>3DGS 实时漫游 Demo</h1>
-        <div>场景：Train（Tanks and Temples）</div>
-        <div>训练迭代：30,000</div>
-        <div style="margin-top:6px;opacity:0.8;font-size:12px;">
-            左键拖拽旋转 · 滚轮缩放 · 右键平移
+        <div><span class="tag">场景</span> Train（Tanks and Temples）</div>
+        <div><span class="tag">迭代</span> 30,000 steps</div>
+        <div><span class="tag">高斯</span> ~108万</div>
+        <div style="margin-top:6px;opacity:0.7;font-size:11px;">
+            左键旋转 · 滚轮缩放 · 右键平移<br>
+            WASD/方向键行走 · Shift 加速
         </div>
     </div>
+
+    <div id="hud">
+        <div><span class="label">游客坐标</span></div>
+        <div>X <span class="value" id="pos-x">0.00</span></div>
+        <div>Y <span class="value" id="pos-y">0.00</span></div>
+        <div>Z <span class="value" id="pos-z">0.00</span></div>
+        <div style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;">
+            <span class="label speed-indicator">移速</span>
+            <span class="value speed-indicator" id="speed-indicator">正常</span>
+        </div>
+    </div>
+
+    <div id="controls-hint">
+        <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> / <span class="key">↑</span><span class="key">↓</span><span class="key">←</span><span class="key">→</span> 移动</div>
+        <div><span class="key">Shift</span> 加速 · <span class="key">C</span> 切换光标</div>
+        <div><span class="key">I</span> 调试信息 · <span class="key">P</span> 点云模式</div>
+    </div>
+
     <div id="loading">
         <div class="spinner"></div>
-        <div>正在加载 3D 高斯模型...</div>
-        <div style="font-size:12px;opacity:0.7;margin-top:8px;">首次加载约 15-30 秒</div>
+        <div>正在加载 3D 高斯场景...</div>
+        <div class="sub">首次加载约 15-30 秒 · 请耐心等待</div>
     </div>
+
+    <div id="mode-toast"></div>
 
     <script type="importmap">
     {
@@ -69,10 +180,13 @@
     </script>
     <script type="module">
         import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
+        import * as THREE from 'three';
 
         const container = document.getElementById('canvas-container');
         const loading = document.getElementById('loading');
+        const modeToast = document.getElementById('mode-toast');
 
+        // ===== Viewer 初始化 =====
         const viewer = new GaussianSplats3D.Viewer({
             'rootElement': container,
             'cameraUp': [0, -1, -0.6],
@@ -86,6 +200,96 @@
             'antialiased': false
         });
 
+        // ===== 键盘状态 =====
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            keys[e.code] = true;
+            // 防止方向键滚动页面
+            if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+            keys[e.code] = false;
+        });
+
+        // ===== 游客漫游系统 =====
+        const moveSpeedNormal = 0.03;
+        const moveSpeedFast = 0.08;
+        const tmpVec = new THREE.Vector3();
+        const tmpForward = new THREE.Vector3();
+        const tmpRight = new THREE.Vector3();
+        const tmpUp = new THREE.Vector3(0, 1, 0);
+
+        function showToast(msg) {
+            modeToast.textContent = msg;
+            modeToast.classList.add('show');
+            setTimeout(() => modeToast.classList.remove('show'), 1200);
+        }
+
+        function updateMovement() {
+            if (!viewer.camera || !viewer.controls) return;
+
+            const camera = viewer.camera;
+            const controls = viewer.controls;
+            const isShift = keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight'];
+            const speed = isShift ? moveSpeedFast : moveSpeedNormal;
+
+            // 获取相机水平朝向
+            camera.getWorldDirection(tmpForward);
+            tmpForward.y = 0;
+            if (tmpForward.lengthSq() < 0.0001) {
+                // 如果相机垂直朝天/地，用默认前方
+                tmpForward.set(0, 0, -1);
+            }
+            tmpForward.normalize();
+
+            // 右向量 = forward × up
+            tmpRight.crossVectors(tmpForward, tmpUp).normalize();
+
+            let moved = false;
+            tmpVec.set(0, 0, 0);
+
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) {
+                tmpVec.addScaledVector(tmpForward, speed);
+                moved = true;
+            }
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) {
+                tmpVec.addScaledVector(tmpForward, -speed);
+                moved = true;
+            }
+            if (keys['a'] || keys['A'] || keys['ArrowLeft']) {
+                tmpVec.addScaledVector(tmpRight, -speed);
+                moved = true;
+            }
+            if (keys['d'] || keys['D'] || keys['ArrowRight']) {
+                tmpVec.addScaledVector(tmpRight, speed);
+                moved = true;
+            }
+
+            if (moved) {
+                // 同时移动相机和焦点，保持 orbit 的相对关系
+                camera.position.add(tmpVec);
+                controls.target.add(tmpVec);
+            }
+
+            // 更新 HUD
+            document.getElementById('pos-x').textContent = camera.position.x.toFixed(2);
+            document.getElementById('pos-y').textContent = camera.position.y.toFixed(2);
+            document.getElementById('pos-z').textContent = camera.position.z.toFixed(2);
+            document.getElementById('speed-indicator').textContent = isShift ? '加速 ⚡' : '正常';
+            document.getElementById('speed-indicator').style.color = isShift ? '#f87171' : '#fbbf24';
+        }
+
+        // ===== 启动游戏循环 =====
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+            updateMovement();
+        }
+
+        // ===== 加载场景 =====
         viewer.addSplatScene('./models/train.ply', {
             'splatAlphaRemovalThreshold': 5,
             'showLoadingUI': false,
@@ -96,6 +300,8 @@
         .then(() => {
             loading.style.display = 'none';
             viewer.start();
+            gameLoop();
+            showToast('🎮 WASD 开始漫游');
         })
         .catch((err) => {
             loading.innerHTML = '<div style="color:#ff6b6b">加载失败: ' + err.message + '</div>';
