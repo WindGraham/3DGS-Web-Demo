@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Logs
+*.log
+nohup.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Large model files (should be transferred separately)
+*.ply
+*.ksplat
+*.splat
+
+# Deployment artifacts
+web_demo_code.tar.gz
