@@ -167,8 +167,8 @@
         <div><span class="tag">迭代</span> 30,000 steps</div>
         <div><span class="tag">高斯</span> ~108万</div>
         <div style="margin-top:6px;opacity:0.7;font-size:11px;">
-            按住左键拖动转头<br>
-            WASD/方向键移动 · Q/E 沿高度轴移动
+            左键拖动转头 · 右键水平对准<br>
+            WASD 移动 · Z/C 原地转头 · X 回水平
         </div>
     </div>
 
@@ -188,9 +188,9 @@
     </div>
 
     <div id="controls-hint">
-        <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> / <span class="key">↑</span><span class="key">↓</span><span class="key">←</span><span class="key">→</span> 移动</div>
-        <div><span class="key">Shift</span> 加速 · <span class="key">Q</span>/<span class="key">E</span> 下降/上升</div>
-        <div>按住左键拖动视角，相机不绕点旋转</div>
+        <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动 · <span class="key">Shift</span> 加速</div>
+        <div><span class="key">Q</span>/<span class="key">E</span> 下降/上升 · <span class="key">Z</span>/<span class="key">C</span> 左/右转头</div>
+        <div><span class="key">X</span> 视角回水平 · 右键水平对准点击方向</div>
     </div>
 
     <div id="loading">
@@ -256,7 +256,7 @@
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             keys[e.code] = true;
-            if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.key)) {
+            if (["Space"].includes(e.key)) {
                 e.preventDefault();
             }
         });
@@ -279,6 +279,7 @@
         const lookTarget = new THREE.Vector3();
         const lookDistance = 10;
         const mouseSensitivity = 0.003;
+        const keyboardTurnSpeed = 0.035;
         const pitchLimit = Math.PI / 2 - 0.08;
         let yaw = Math.PI;
         let pitch = 0;
@@ -331,8 +332,25 @@
             camera.lookAt(lookTarget);
         }
 
+        function alignYawToScreenPoint(clientX) {
+            if (!viewer.camera) return;
+            const rect = container.getBoundingClientRect();
+            const normalizedX = ((clientX - rect.left) / rect.width) * 2 - 1;
+            const camera = viewer.camera;
+            const horizontalFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect);
+
+            yaw += normalizedX * horizontalFov / 2;
+            pitch = 0;
+            applyFirstPersonLook();
+        }
+
         container.addEventListener('contextmenu', (e) => e.preventDefault());
         container.addEventListener('mousedown', (e) => {
+            if (e.button === 2) {
+                alignYawToScreenPoint(e.clientX);
+                e.preventDefault();
+                return;
+            }
             if (e.button !== 0) return;
             isDraggingLook = true;
             lastMouseX = e.clientX;
@@ -362,6 +380,9 @@
             const speed = isShift ? moveSpeedFast : moveSpeedNormal;
             if (keys['q'] || keys['Q']) lockedHeight += heightStep;
             if (keys['e'] || keys['E']) lockedHeight -= heightStep;
+            if (keys['z'] || keys['Z']) yaw -= keyboardTurnSpeed;
+            if (keys['c'] || keys['C']) yaw += keyboardTurnSpeed;
+            if (keys['x'] || keys['X']) pitch = 0;
 
             // 第一人称平面移动：前后左右只看水平 yaw，不受抬头/低头影响。
             tmpForward.set(Math.sin(yaw), 0, Math.cos(yaw));
@@ -376,19 +397,19 @@
             let moved = false;
             tmpVec.set(0, 0, 0);
 
-            if (keys['w'] || keys['W'] || keys['ArrowUp']) {
+            if (keys['w'] || keys['W']) {
                 tmpVec.addScaledVector(tmpForward, speed);
                 moved = true;
             }
-            if (keys['s'] || keys['S'] || keys['ArrowDown']) {
+            if (keys['s'] || keys['S']) {
                 tmpVec.addScaledVector(tmpForward, -speed);
                 moved = true;
             }
-            if (keys['a'] || keys['A'] || keys['ArrowLeft']) {
+            if (keys['a'] || keys['A']) {
                 tmpVec.addScaledVector(tmpRight, -speed);
                 moved = true;
             }
-            if (keys['d'] || keys['D'] || keys['ArrowRight']) {
+            if (keys['d'] || keys['D']) {
                 tmpVec.addScaledVector(tmpRight, speed);
                 moved = true;
             }
