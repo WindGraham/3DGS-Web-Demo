@@ -168,7 +168,7 @@
         <div><span class="tag">高斯</span> ~108万</div>
         <div style="margin-top:6px;opacity:0.7;font-size:11px;">
             左键拖动转头 · 右键对准点击点<br>
-            WASD 移动 · Z/C 旋转画面 · M 切鼠标方向
+            WASD 移动 · F 拍照 · M 切鼠标方向
         </div>
     </div>
 
@@ -190,7 +190,7 @@
     <div id="controls-hint">
         <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动 · <span class="key">Shift</span> 加速</div>
         <div><span class="key">Q</span>/<span class="key">E</span> 下降/上升 · <span class="key">Z</span>/<span class="key">C</span> 画面逆/顺时针旋转</div>
-        <div><span class="key">X</span> 画面回正 · 右键让准星对准点击点</div>
+        <div><span class="key">X</span> 画面回正 · <span class="key">F</span> 保存当前视角照片</div>
     </div>
 
     <div id="loading">
@@ -260,6 +260,9 @@
                 mouseDirection *= -1;
                 showToast(mouseDirection > 0 ? '鼠标方向：模式 A' : '鼠标方向：模式 B');
             }
+            if ((e.key === 'f' || e.key === 'F') && !e.repeat) {
+                capturePhoto();
+            }
             if (["Space"].includes(e.key)) {
                 e.preventDefault();
             }
@@ -292,6 +295,7 @@
         let pitch = 0;
         let roll = 0;
         let mouseDirection = -1;
+        let isCapturing = false;
         let isDraggingLook = false;
         let lastMouseX = 0;
         let lastMouseY = 0;
@@ -366,6 +370,50 @@
             pitch = Math.asin(clamp(clickDirection.y, -1, 1));
             roll = 0;
             applyFirstPersonLook();
+        }
+
+        function waitForFrame() {
+            return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+        }
+
+        async function capturePhoto() {
+            if (isCapturing || !viewer.renderer) return;
+            isCapturing = true;
+            showToast('正在精细渲染并保存...');
+
+            const renderer = viewer.renderer;
+            const canvas = renderer.domElement;
+            const oldPixelRatio = renderer.getPixelRatio();
+            const oldSize = new THREE.Vector2();
+            renderer.getSize(oldSize);
+            const capturePixelRatio = Math.min(Math.max(oldPixelRatio * 2, 2), 3);
+
+            try {
+                renderer.setPixelRatio(capturePixelRatio);
+                renderer.setSize(oldSize.x, oldSize.y, false);
+                applyFirstPersonLook();
+                if (typeof viewer.update === 'function') viewer.update();
+                await waitForFrame();
+                if (typeof viewer.update === 'function') viewer.update();
+                await waitForFrame();
+
+                const image = canvas.toDataURL('image/png');
+                const response = await fetch('/api/screenshot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image })
+                });
+                const result = await response.json();
+                if (!result.ok) throw new Error(result.error || '保存失败');
+                showToast(`已保存：${result.file}`);
+            } catch (err) {
+                console.error(err);
+                showToast(`拍照失败：${err.message}`);
+            } finally {
+                renderer.setPixelRatio(oldPixelRatio);
+                renderer.setSize(oldSize.x, oldSize.y, false);
+                isCapturing = false;
+            }
         }
 
         container.addEventListener('contextmenu', (e) => {

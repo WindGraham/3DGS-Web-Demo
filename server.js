@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 8080;
 const MODEL_PATH = fs.existsSync(path.join(__dirname, 'models', 'train.ply'))
     ? path.join(__dirname, 'models', 'train.ply')
     : '/home/graham/Science/3DGS/02_复现代码/3DGS_Project/output/train/point_cloud/iteration_30000/point_cloud.ply';
+const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 
 const mimeTypes = {
     '.html': 'text/html',
@@ -38,6 +39,11 @@ const server = http.createServer((req, res) => {
     if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();
+        return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/screenshot') {
+        saveScreenshot(req, res);
         return;
     }
 
@@ -93,6 +99,47 @@ function serveFile(res, filePath, contentType, isModel) {
                 'Accept-Ranges': 'bytes'
             });
             fs.createReadStream(filePath).pipe(res);
+        }
+    });
+}
+
+function saveScreenshot(req, res) {
+    let body = '';
+    const maxBytes = 50 * 1024 * 1024;
+
+    req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > maxBytes) {
+            res.writeHead(413, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'Screenshot payload too large' }));
+            req.destroy();
+        }
+    });
+
+    req.on('end', () => {
+        try {
+            const payload = JSON.parse(body);
+            const match = /^data:image\/png;base64,(.+)$/.exec(payload.image || '');
+            if (!match) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'Invalid PNG data URL' }));
+                return;
+            }
+
+            fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `3dgs_capture_${timestamp}.png`;
+            const filePath = path.join(SCREENSHOT_DIR, filename);
+            fs.writeFileSync(filePath, Buffer.from(match[1], 'base64'));
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                ok: true,
+                file: path.relative(__dirname, filePath)
+            }));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
         }
     });
 }
