@@ -167,8 +167,8 @@
         <div><span class="tag">迭代</span> 30,000 steps</div>
         <div><span class="tag">高斯</span> ~108万</div>
         <div style="margin-top:6px;opacity:0.7;font-size:11px;">
-            左键拖动转头 · 右键水平对准<br>
-            WASD 移动 · Z/C 原地转头 · X 回水平
+            左键拖动转头 · 右键对准点击点<br>
+            WASD 移动 · Z/C 旋转画面 · M 切鼠标方向
         </div>
     </div>
 
@@ -189,8 +189,8 @@
 
     <div id="controls-hint">
         <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动 · <span class="key">Shift</span> 加速</div>
-        <div><span class="key">Q</span>/<span class="key">E</span> 下降/上升 · <span class="key">Z</span>/<span class="key">C</span> 左/右转头</div>
-        <div><span class="key">X</span> 视角回水平 · 右键水平对准点击方向</div>
+        <div><span class="key">Q</span>/<span class="key">E</span> 下降/上升 · <span class="key">Z</span>/<span class="key">C</span> 画面逆/顺时针旋转</div>
+        <div><span class="key">X</span> 画面回正 · 右键让准星对准点击点</div>
     </div>
 
     <div id="loading">
@@ -256,6 +256,10 @@
         window.addEventListener('keydown', (e) => {
             keys[e.key] = true;
             keys[e.code] = true;
+            if ((e.key === 'm' || e.key === 'M') && !e.repeat) {
+                mouseDirection *= -1;
+                showToast(mouseDirection > 0 ? '鼠标方向：模式 A' : '鼠标方向：模式 B');
+            }
             if (["Space"].includes(e.key)) {
                 e.preventDefault();
             }
@@ -277,12 +281,17 @@
         const tmpRight = new THREE.Vector3();
         const lookDirection = new THREE.Vector3();
         const lookTarget = new THREE.Vector3();
+        const baseCameraUp = new THREE.Vector3(0, -1, 0);
+        const rolledCameraUp = new THREE.Vector3();
+        const rollQuaternion = new THREE.Quaternion();
         const lookDistance = 10;
         const mouseSensitivity = 0.003;
-        const keyboardTurnSpeed = 0.035;
+        const rollSpeed = 0.035;
         const pitchLimit = Math.PI / 2 - 0.08;
         let yaw = Math.PI;
         let pitch = 0;
+        let roll = 0;
+        let mouseDirection = -1;
         let isDraggingLook = false;
         let lastMouseX = 0;
         let lastMouseY = 0;
@@ -327,27 +336,46 @@
                 Math.cos(yaw) * cosPitch
             ).normalize();
 
+            rolledCameraUp.copy(baseCameraUp);
+            rolledCameraUp.addScaledVector(lookDirection, -rolledCameraUp.dot(lookDirection));
+            if (rolledCameraUp.lengthSq() < 0.0001) {
+                rolledCameraUp.set(0, 0, 1);
+            }
+            rolledCameraUp.normalize();
+            rollQuaternion.setFromAxisAngle(lookDirection, roll);
+            rolledCameraUp.applyQuaternion(rollQuaternion);
+            camera.up.copy(rolledCameraUp);
+
             lookTarget.copy(camera.position).addScaledVector(lookDirection, lookDistance);
             controls.target.copy(lookTarget);
             camera.lookAt(lookTarget);
         }
 
-        function alignYawToScreenPoint(clientX) {
+        function alignLookToScreenPoint(clientX, clientY) {
             if (!viewer.camera) return;
             const rect = container.getBoundingClientRect();
             const normalizedX = ((clientX - rect.left) / rect.width) * 2 - 1;
+            const normalizedY = -(((clientY - rect.top) / rect.height) * 2 - 1);
             const camera = viewer.camera;
-            const horizontalFov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect);
+            const clickDirection = new THREE.Vector3(normalizedX, normalizedY, 0.5)
+                .unproject(camera)
+                .sub(camera.position)
+                .normalize();
 
-            yaw += normalizedX * horizontalFov / 2;
-            pitch = 0;
+            yaw = Math.atan2(clickDirection.x, clickDirection.z);
+            pitch = Math.asin(clamp(clickDirection.y, -1, 1));
+            roll = 0;
             applyFirstPersonLook();
         }
 
-        container.addEventListener('contextmenu', (e) => e.preventDefault());
+        container.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, true);
         container.addEventListener('mousedown', (e) => {
+            e.stopImmediatePropagation();
             if (e.button === 2) {
-                alignYawToScreenPoint(e.clientX);
+                alignLookToScreenPoint(e.clientX, e.clientY);
                 e.preventDefault();
                 return;
             }
@@ -356,21 +384,23 @@
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
             e.preventDefault();
-        });
-        window.addEventListener('mouseup', () => {
+        }, true);
+        window.addEventListener('mouseup', (e) => {
             isDraggingLook = false;
-        });
+            e.stopImmediatePropagation();
+        }, true);
         window.addEventListener('mousemove', (e) => {
             if (!isDraggingLook) return;
+            e.stopImmediatePropagation();
             const dx = e.clientX - lastMouseX;
             const dy = e.clientY - lastMouseY;
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
 
-            yaw += dx * mouseSensitivity;
-            pitch = clamp(pitch + dy * mouseSensitivity, -pitchLimit, pitchLimit);
+            yaw += mouseDirection * dx * mouseSensitivity;
+            pitch = clamp(pitch + mouseDirection * dy * mouseSensitivity, -pitchLimit, pitchLimit);
             applyFirstPersonLook();
-        });
+        }, true);
 
         function updateMovement() {
             if (!viewer.camera || !viewer.controls) return;
@@ -380,9 +410,9 @@
             const speed = isShift ? moveSpeedFast : moveSpeedNormal;
             if (keys['q'] || keys['Q']) lockedHeight += heightStep;
             if (keys['e'] || keys['E']) lockedHeight -= heightStep;
-            if (keys['z'] || keys['Z']) yaw -= keyboardTurnSpeed;
-            if (keys['c'] || keys['C']) yaw += keyboardTurnSpeed;
-            if (keys['x'] || keys['X']) pitch = 0;
+            if (keys['z'] || keys['Z']) roll -= rollSpeed;
+            if (keys['c'] || keys['C']) roll += rollSpeed;
+            if (keys['x'] || keys['X']) roll = 0;
 
             // 第一人称平面移动：前后左右只看水平 yaw，不受抬头/低头影响。
             tmpForward.set(Math.sin(yaw), 0, Math.cos(yaw));
