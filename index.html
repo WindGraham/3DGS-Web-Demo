@@ -167,8 +167,8 @@
         <div><span class="tag">迭代</span> 30,000 steps</div>
         <div><span class="tag">高斯</span> ~108万</div>
         <div style="margin-top:6px;opacity:0.7;font-size:11px;">
-            左键旋转 · 滚轮缩放 · 右键平移<br>
-            WASD/方向键行走 · Shift 加速
+            按住左键拖动转头<br>
+            WASD/方向键移动 · Q/E 沿高度轴移动
         </div>
     </div>
 
@@ -189,8 +189,8 @@
 
     <div id="controls-hint">
         <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> / <span class="key">↑</span><span class="key">↓</span><span class="key">←</span><span class="key">→</span> 移动</div>
-        <div><span class="key">Shift</span> 加速 · <span class="key">C</span> 切换光标</div>
-        <div><span class="key">I</span> 调试信息 · <span class="key">P</span> 点云模式</div>
+        <div><span class="key">Shift</span> 加速 · <span class="key">Q</span>/<span class="key">E</span> 下降/上升</div>
+        <div>按住左键拖动视角，相机不绕点旋转</div>
     </div>
 
     <div id="loading">
@@ -220,26 +220,13 @@
         // ===== Three.js 场景辅助对象 =====
         const threeScene = new THREE.Scene();
 
-        // 地面网格：帮助判断方向和地面位置
+        // 调试网格只作为方向参考，不能写入深度，否则会遮挡 3DGS 点云。
         const gridHelper = new THREE.GridHelper(40, 40, 0x555555, 0x333333);
-        // 场景Y轴负方向为上，地面约在Y=0，把网格放在稍微"下方"一点避免z-fighting
         gridHelper.position.set(0, 0.02, 0);
+        gridHelper.material.depthWrite = false;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.35;
         threeScene.add(gridHelper);
-
-        // 参考平面（半透明地面）
-        const planeGeo = new THREE.PlaneGeometry(200, 200);
-        const planeMat = new THREE.MeshBasicMaterial({
-            color: 0x0a0a0a,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.4
-        });
-        const groundPlane = new THREE.Mesh(planeGeo, planeMat);
-        // 平面默认是竖直的，需要旋转为水平
-        // 根据cameraUp，Y轴负方向为上。这里我们让平面平铺在Y=0
-        groundPlane.rotation.x = Math.PI; // 翻转一下
-        groundPlane.position.set(0, 0.01, 0);
-        threeScene.add(groundPlane);
 
         // 坐标轴辅助（小巧一点）
         const axesHelper = new THREE.AxesHelper(2);
@@ -247,14 +234,15 @@
         threeScene.add(axesHelper);
 
         // ===== Viewer 初始化 =====
-        // 场景Y轴负方向为上，地面约在Y=0，人眼高度约Y=-1.6（比地面高1.6个单位）
+        // Train 模型来自 COLMAP/3DGS，世界坐标未做真实地面标定。
+        // 这里先固定相机高度，保证 WASD 漫游不会上下漂移。
         const viewer = new GaussianSplats3D.Viewer({
             'rootElement': container,
             'threeScene': threeScene,
-            'cameraUp': [0, -1, -0.6],
-            // 初始位置：站在场景中后方，高度-1.6（地面以上），平视前方
-            'initialCameraPosition': [0, -1.6, 8],
-            'initialCameraLookAt': [0, -1.6, 0],
+            'cameraUp': [0, -1, 0],
+            // 初始位置：站在场景中后方，保持平视。高度可用 Q/E 微调。
+            'initialCameraPosition': [0, -0.25, 8],
+            'initialCameraLookAt': [0, -0.25, 0],
             'sharedMemoryForWorkers': false,
             'gpuAcceleratedSort': false,
             'integerBasedSort': true,
@@ -280,16 +268,23 @@
         // ===== 游客漫游系统 =====
         const moveSpeedNormal = 0.04;
         const moveSpeedFast = 0.10;
-        // 人眼高度范围：Y轴负方向为上，所以数值越小越高
-        // 地面约Y=0，人眼应在Y=-1.4 ~ -1.8之间（高于地面）
-        const eyeHeight = -1.6;
-        const minHeight = -2.2;  // 最低（最高处）
-        const maxHeight = -0.8;  // 最高（最低处，接近地面）
+        const eyeHeight = -0.25;
+        const heightStep = 0.05;
+        let lockedHeight = eyeHeight;
 
         const tmpVec = new THREE.Vector3();
         const tmpForward = new THREE.Vector3();
         const tmpRight = new THREE.Vector3();
-        const tmpUp = new THREE.Vector3(0, 1, 0);
+        const lookDirection = new THREE.Vector3();
+        const lookTarget = new THREE.Vector3();
+        const lookDistance = 10;
+        const mouseSensitivity = 0.003;
+        const pitchLimit = Math.PI / 2 - 0.08;
+        let yaw = Math.PI;
+        let pitch = 0;
+        let isDraggingLook = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
 
         function showToast(msg) {
             modeToast.textContent = msg;
@@ -308,28 +303,75 @@
             return `${dirs[idx]} ${Math.round(deg)}°`;
         }
 
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function syncLookAnglesFromCamera() {
+            if (!viewer.camera) return;
+            viewer.camera.getWorldDirection(lookDirection);
+            yaw = Math.atan2(lookDirection.x, lookDirection.z);
+            pitch = Math.asin(clamp(lookDirection.y, -1, 1));
+        }
+
+        function applyFirstPersonLook() {
+            if (!viewer.camera || !viewer.controls) return;
+            const camera = viewer.camera;
+            const controls = viewer.controls;
+            const cosPitch = Math.cos(pitch);
+
+            lookDirection.set(
+                Math.sin(yaw) * cosPitch,
+                Math.sin(pitch),
+                Math.cos(yaw) * cosPitch
+            ).normalize();
+
+            lookTarget.copy(camera.position).addScaledVector(lookDirection, lookDistance);
+            controls.target.copy(lookTarget);
+            camera.lookAt(lookTarget);
+        }
+
+        container.addEventListener('contextmenu', (e) => e.preventDefault());
+        container.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            isDraggingLook = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            e.preventDefault();
+        });
+        window.addEventListener('mouseup', () => {
+            isDraggingLook = false;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingLook) return;
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            yaw += dx * mouseSensitivity;
+            pitch = clamp(pitch + dy * mouseSensitivity, -pitchLimit, pitchLimit);
+            applyFirstPersonLook();
+        });
+
         function updateMovement() {
             if (!viewer.camera || !viewer.controls) return;
 
             const camera = viewer.camera;
-            const controls = viewer.controls;
             const isShift = keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight'];
             const speed = isShift ? moveSpeedFast : moveSpeedNormal;
+            if (keys['q'] || keys['Q']) lockedHeight += heightStep;
+            if (keys['e'] || keys['E']) lockedHeight -= heightStep;
 
-            // 获取相机水平朝向（忽略俯仰，只看偏航）
-            camera.getWorldDirection(tmpForward);
-            // 保持水平：在这个坐标系里，Y轴负方向是上，所以水平面是XZ平面
-            // 我们把Y分量归0，然后重新归一化
-            const originalY = tmpForward.y;
-            tmpForward.y = 0;
-            if (tmpForward.lengthSq() < 0.0001) {
-                // 如果相机垂直朝天/地，用默认前方（-Z方向）
-                tmpForward.set(0, 0, -1);
-            }
+            // 第一人称平面移动：前后左右只看水平 yaw，不受抬头/低头影响。
+            tmpForward.set(Math.sin(yaw), 0, Math.cos(yaw));
             tmpForward.normalize();
-
-            // 右向量 = forward × worldUp
-            tmpRight.crossVectors(tmpForward, tmpUp).normalize();
+            tmpRight.crossVectors(tmpForward, camera.up);
+            tmpRight.y = 0;
+            if (tmpRight.lengthSq() < 0.0001) {
+                tmpRight.set(-Math.cos(yaw), 0, Math.sin(yaw));
+            }
+            tmpRight.normalize();
 
             let moved = false;
             tmpVec.set(0, 0, 0);
@@ -352,27 +394,11 @@
             }
 
             if (moved) {
-                // 同时移动相机和焦点，保持 orbit 的相对关系
                 camera.position.add(tmpVec);
-                controls.target.add(tmpVec);
             }
 
-            // 强制保持人眼高度：始终让相机Y处于eyeHeight附近
-            // 这样玩家不会飞天或入地
-            if (camera.position.y > maxHeight) {
-                const fix = maxHeight - camera.position.y;
-                camera.position.y += fix;
-                controls.target.y += fix;
-            }
-            if (camera.position.y < minHeight) {
-                const fix = minHeight - camera.position.y;
-                camera.position.y += fix;
-                controls.target.y += fix;
-            }
-
-            // 让相机始终平视（目标点与相机同高度）
-            // 这样鼠标旋转时不会上下乱翻
-            controls.target.y = camera.position.y;
+            camera.position.y = lockedHeight;
+            applyFirstPersonLook();
 
             // 更新 HUD
             document.getElementById('pos-x').textContent = camera.position.x.toFixed(2);
@@ -403,8 +429,17 @@
         .then(() => {
             loading.style.display = 'none';
             viewer.start();
+            lockedHeight = viewer.camera.position.y;
+            if (viewer.controls) {
+                viewer.controls.enableRotate = false;
+                viewer.controls.enablePan = false;
+                viewer.controls.enableZoom = false;
+                viewer.controls.enableDamping = false;
+            }
+            syncLookAnglesFromCamera();
+            applyFirstPersonLook();
             gameLoop();
-            showToast('🎮 WASD 开始漫游 · 地面在脚下');
+            showToast('拖动鼠标转头 · WASD 平面移动');
         })
         .catch((err) => {
             loading.innerHTML = '<div style="color:#ff6b6b">加载失败: ' + err.message + '</div>';
