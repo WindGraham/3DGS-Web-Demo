@@ -199,7 +199,7 @@
         #guide-panel {
             position: absolute;
             right: 16px; top: 188px;
-            width: 280px;
+            width: 310px;
             max-height: calc(100vh - 220px);
             overflow: auto;
             color: #fff;
@@ -212,6 +212,24 @@
             z-index: 55;
             backdrop-filter: blur(4px);
         }
+        .panel-tabs {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 5px;
+            margin-bottom: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: rgba(0,0,0,0.42);
+            padding-bottom: 8px;
+            backdrop-filter: blur(4px);
+        }
+        .panel-tab {
+            text-align: center;
+            padding: 7px 4px;
+        }
+        .panel-page { display: none; }
+        .panel-page.active { display: block; }
         #poi-label-layer {
             position: absolute;
             inset: 0;
@@ -303,6 +321,37 @@
             color: rgba(255,255,255,0.62);
             line-height: 1.5;
         }
+        .range-row {
+            display: grid;
+            grid-template-columns: 72px minmax(0, 1fr) 44px;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+            color: rgba(255,255,255,0.72);
+        }
+        .range-row input { width: 100%; }
+        .range-value {
+            color: #93c5fd;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+        .summary-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px;
+            line-height: 1.35;
+        }
+        .summary-card strong {
+            display: block;
+            color: #93c5fd;
+            font-size: 16px;
+        }
         .info-table {
             display: grid;
             grid-template-columns: 76px minmax(0, 1fr);
@@ -377,6 +426,45 @@
             backdrop-filter: blur(5px);
         }
         #subtitle-panel.hidden { display: none; }
+        #touch-controls {
+            position: absolute;
+            inset: auto 0 0 0;
+            z-index: 58;
+            pointer-events: none;
+            display: none;
+        }
+        .touch-pad {
+            position: absolute;
+            left: 18px;
+            bottom: 18px;
+            display: grid;
+            grid-template-columns: repeat(3, 42px);
+            grid-template-rows: repeat(3, 42px);
+            gap: 6px;
+            pointer-events: auto;
+        }
+        .touch-pad .touch-btn:nth-child(1) { grid-column: 2; grid-row: 1; }
+        .touch-pad .touch-btn:nth-child(2) { grid-column: 1; grid-row: 2; }
+        .touch-pad .touch-btn:nth-child(3) { grid-column: 2; grid-row: 3; }
+        .touch-pad .touch-btn:nth-child(4) { grid-column: 3; grid-row: 2; }
+        .touch-actions {
+            position: absolute;
+            right: 18px;
+            bottom: 18px;
+            display: grid;
+            gap: 8px;
+            pointer-events: auto;
+        }
+        .touch-btn {
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(0,0,0,0.54);
+            color: rgba(255,255,255,0.9);
+            border-radius: 8px;
+            min-width: 42px;
+            min-height: 42px;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+        }
         .overlay-panel {
             position: absolute;
             left: 50%; top: 50%;
@@ -434,11 +522,15 @@
         }
         @media (max-width: 720px) {
             #guide-panel { display: none; }
-            #info { max-width: calc(100vw - 32px); }
+            #info { max-width: calc(100vw - 32px); left: 12px; right: 12px; }
+            #hud, #radar-panel { display: none; }
             #metrics-panel { display: none; }
             #mode-bar { top: auto; bottom: 14px; }
             #controls-hint { display: none; }
             #subtitle-panel { width: calc(100vw - 32px); bottom: 76px; }
+            #touch-controls { display: block; }
+            .touch-pad { left: 18px; bottom: 92px; }
+            .touch-actions { right: auto; left: 172px; bottom: 118px; }
         }
     </style>
 </head>
@@ -487,6 +579,13 @@
     </div>
 
     <div id="guide-panel">
+        <div class="panel-tabs">
+            <button class="panel-btn panel-tab active" data-panel-tab="tour">导览</button>
+            <button class="panel-btn panel-tab" data-panel-tab="media">拍照</button>
+            <button class="panel-btn panel-tab" data-panel-tab="settings">设置</button>
+            <button class="panel-btn panel-tab" data-panel-tab="eval">评估</button>
+        </div>
+        <div class="panel-page active" data-panel-page="tour">
         <div class="panel-section">
             <div class="panel-title">POI 讲解</div>
             <div class="panel-list" id="poi-list">
@@ -517,6 +616,8 @@
                 <button class="panel-btn">侧面视角</button>
             </div>
         </div>
+        </div>
+        <div class="panel-page" data-panel-page="media">
         <div class="panel-section">
             <div class="panel-title">照片</div>
             <div class="panel-list" id="photo-list"></div>
@@ -539,6 +640,8 @@
             </div>
             <div class="panel-note" id="record-status">未录制。</div>
         </div>
+        </div>
+        <div class="panel-page" data-panel-page="settings">
         <div class="panel-section">
             <div class="panel-title">系统信息</div>
             <div class="info-table">
@@ -554,11 +657,58 @@
                 <button class="panel-btn compact-btn active" data-quality="balanced">均衡</button>
                 <button class="panel-btn compact-btn" data-quality="quality">高清</button>
             </div>
+            <div class="panel-title" style="margin-top:10px;">漫游参数</div>
+            <label class="range-row">
+                <span>移速</span>
+                <input id="speed-range" type="range" min="0.02" max="0.16" step="0.01" value="0.04">
+                <span class="range-value" id="speed-range-value">0.04</span>
+            </label>
+            <label class="range-row">
+                <span>鼠标</span>
+                <input id="mouse-range" type="range" min="0.001" max="0.008" step="0.001" value="0.003">
+                <span class="range-value" id="mouse-range-value">0.003</span>
+            </label>
+            <label class="range-row">
+                <span>高度步长</span>
+                <input id="height-range" type="range" min="0.02" max="0.14" step="0.01" value="0.05">
+                <span class="range-value" id="height-range-value">0.05</span>
+            </label>
             <div class="panel-grid-2" style="margin-top:10px;">
                 <button class="panel-btn compact-btn" id="help-btn">帮助</button>
                 <button class="panel-btn compact-btn" id="export-log-btn">导出评估</button>
             </div>
             <button class="panel-btn compact-btn" id="share-view-btn" style="margin-top:6px;">复制当前视角链接</button>
+        </div>
+        </div>
+        <div class="panel-page" data-panel-page="eval">
+            <div class="panel-section">
+                <div class="panel-title">会话摘要</div>
+                <div class="summary-grid">
+                    <div class="summary-card">运行<strong id="summary-time">0s</strong></div>
+                    <div class="summary-card">事件<strong id="summary-events">0</strong></div>
+                    <div class="summary-card">POI<strong id="summary-poi">0</strong></div>
+                    <div class="summary-card">照片<strong id="summary-photos">0</strong></div>
+                </div>
+                <div class="panel-note" id="summary-last-event">暂无事件。</div>
+                <div class="panel-grid-2" style="margin-top:10px;">
+                    <button class="panel-btn compact-btn" id="export-log-btn-2">导出 JSON</button>
+                    <button class="panel-btn compact-btn" id="clear-log-btn">清空记录</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="touch-controls">
+        <div class="touch-pad">
+            <button class="touch-btn" data-touch-key="w">W</button>
+            <button class="touch-btn" data-touch-key="a">A</button>
+            <button class="touch-btn" data-touch-key="s">S</button>
+            <button class="touch-btn" data-touch-key="d">D</button>
+        </div>
+        <div class="touch-actions">
+            <button class="touch-btn" data-touch-key="q">下</button>
+            <button class="touch-btn" data-touch-key="e">上</button>
+            <button class="touch-btn" id="touch-photo-btn">拍照</button>
         </div>
     </div>
 
@@ -627,6 +777,8 @@
         const radarCanvas = document.getElementById('radar');
         const radarCtx = radarCanvas.getContext('2d');
         const modeButtons = document.querySelectorAll('.mode-btn');
+        const panelTabs = document.querySelectorAll('[data-panel-tab]');
+        const panelPages = document.querySelectorAll('[data-panel-page]');
         const styleButtons = document.querySelectorAll('[data-style]');
         const recordBtn = document.getElementById('record-btn');
         const recordStatus = document.getElementById('record-status');
@@ -643,6 +795,20 @@
         const exportLogBtn = document.getElementById('export-log-btn');
         const shareViewBtn = document.getElementById('share-view-btn');
         const qualityButtons = document.querySelectorAll('[data-quality]');
+        const speedRange = document.getElementById('speed-range');
+        const mouseRange = document.getElementById('mouse-range');
+        const heightRange = document.getElementById('height-range');
+        const speedRangeValue = document.getElementById('speed-range-value');
+        const mouseRangeValue = document.getElementById('mouse-range-value');
+        const heightRangeValue = document.getElementById('height-range-value');
+        const exportLogBtn2 = document.getElementById('export-log-btn-2');
+        const clearLogBtn = document.getElementById('clear-log-btn');
+        const summaryTime = document.getElementById('summary-time');
+        const summaryEvents = document.getElementById('summary-events');
+        const summaryPoi = document.getElementById('summary-poi');
+        const summaryPhotos = document.getElementById('summary-photos');
+        const summaryLastEvent = document.getElementById('summary-last-event');
+        const touchPhotoBtn = document.getElementById('touch-photo-btn');
         const metricFps = document.getElementById('metric-fps');
         const metricTime = document.getElementById('metric-time');
         const metricMode = document.getElementById('metric-mode');
@@ -712,10 +878,10 @@
         });
 
         // ===== 游客漫游系统 =====
-        const moveSpeedNormal = 0.04;
-        const moveSpeedFast = 0.10;
+        let moveSpeedNormal = 0.04;
+        let moveSpeedFast = 0.10;
         const eyeHeight = -0.25;
-        const heightStep = 0.05;
+        let heightStep = 0.05;
         let lockedHeight = eyeHeight;
 
         const tmpVec = new THREE.Vector3();
@@ -727,7 +893,7 @@
         const rolledCameraUp = new THREE.Vector3();
         const rollQuaternion = new THREE.Quaternion();
         const lookDistance = 10;
-        const mouseSensitivity = 0.003;
+        let mouseSensitivity = 0.003;
         const rollSpeed = 0.035;
         const pitchLimit = Math.PI / 2 - 0.08;
         let yaw = Math.PI;
@@ -736,8 +902,11 @@
         let mouseDirection = -1;
         let isCapturing = false;
         let isDraggingLook = false;
+        let isTouchLooking = false;
         let lastMouseX = 0;
         let lastMouseY = 0;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
         let appMode = 'free';
         let activePoiIndex = null;
         let tourSegment = 0;
@@ -771,36 +940,54 @@
                 title: '车头观测点',
                 category: '主体结构',
                 stay: '建议停留 20s',
-                narration: '约 18s',
+                narration: '约 35s',
                 position: new THREE.Vector3(-1.8, -0.25, 0.8),
-                text: '这里用于观察 Train 场景的主体结构。3DGS 会把多视角照片重建成大量可实时渲染的高斯椭球。'
+                text: '这里展示列车主体的三维重建效果。传统全景图只能在固定点位观看，而 3DGS 把多视角照片转成大量带颜色、透明度和方向的高斯椭球，游客可以像在真实空间里一样移动观察。对于历史遗迹或自然名胜，这类数字资产可用于长期保存、线上展陈和教学讲解。'
             },
             {
                 id: 'side',
                 title: '车身侧面',
                 category: '细节观察',
                 stay: '建议停留 25s',
-                narration: '约 20s',
+                narration: '约 32s',
                 position: new THREE.Vector3(2.2, -0.25, 1.6),
-                text: '侧面区域适合观察 3DGS 对细长结构、边缘和遮挡关系的表达效果。'
+                text: '侧面区域适合观察细长结构、边缘和遮挡关系。文旅场景中类似的部位包括古建筑斗拱、碑刻边缘、栈道栏杆和山体轮廓。游客靠近时能看到更多局部纹理，远离时保持整体观感，这正是后续做多精度加载和分块渲染的基础。'
             },
             {
                 id: 'track',
                 title: '轨道与地面',
                 category: '重建质量',
                 stay: '建议停留 30s',
-                narration: '约 22s',
+                narration: '约 38s',
                 position: new THREE.Vector3(0.4, -0.15, 3.8),
-                text: '地面与轨道能体现重建的几何连续性，也能暴露当前场景尚未做真实地面标定的问题。'
+                text: '地面和轨道区域用于观察重建连续性，也能暴露当前 demo 的局限：模型坐标没有真实地面标定，所以我们用软件层固定游客高度。真正落地到景区时，应在采集和重建阶段加入尺度、地面和入口方向标定，让游客视角更符合现实空间。'
             },
             {
                 id: 'overview',
                 title: '整体导览视角',
                 category: '路线入口',
                 stay: '建议停留 15s',
-                narration: '约 16s',
+                narration: '约 28s',
                 position: new THREE.Vector3(0, -0.8, 6.2),
-                text: '从这里可以快速进入导览路线，展示从自由漫游到自动讲解的完整体验。'
+                text: '这里是自动导览的入口。系统可以按照预设路线带游客移动，在关键点触发字幕和语音讲解，并记录停留、点击、拍照等交互数据。后续接入景点知识库后，游客还可以围绕某个位置直接提问。'
+            },
+            {
+                id: 'preserve',
+                title: '数字保存说明',
+                category: '数字人文',
+                stay: '建议停留 18s',
+                narration: '约 30s',
+                position: new THREE.Vector3(-2.8, -0.35, 4.6),
+                text: '数字保存的核心不是只做一个可看的模型，而是形成可复用的三维档案：照片、相机位姿、点云、高斯模型、讲解文本和评估记录都应被统一管理。这样模型以后可以继续优化，也能服务展厅、网页、移动端和教学材料。'
+            },
+            {
+                id: 'future',
+                title: '应用扩展点',
+                category: 'AI 交互',
+                stay: '建议停留 20s',
+                narration: '约 34s',
+                position: new THREE.Vector3(2.8, -0.45, 5.5),
+                text: '这个点位用于展示未来扩展：LLM 负责回答游客问题，RAG 从景点资料中检索依据，TTS 生成语音讲解，风格化后处理生成不同氛围，拍照和明信片功能则把一次浏览转化为可分享的数字纪念品。'
             }
         ];
 
@@ -812,10 +999,12 @@
         ];
 
         const tourRoute = [
-            { position: [0, -0.25, 8], yaw: Math.PI, pitch: 0, duration: 3.5, poi: 3 },
-            { position: [-1.8, -0.25, 3.6], yaw: 2.75, pitch: 0, duration: 4.0, poi: 0 },
-            { position: [2.7, -0.25, 3.0], yaw: -2.45, pitch: 0, duration: 4.0, poi: 1 },
-            { position: [0.5, -0.18, 5.0], yaw: Math.PI, pitch: 0.08, duration: 4.0, poi: 2 }
+            { name: '入口总览', position: [0, -0.25, 8], yaw: Math.PI, pitch: 0, duration: 3.5, poi: 3 },
+            { name: '车头主体', position: [-1.8, -0.25, 3.6], yaw: 2.75, pitch: 0, duration: 4.2, poi: 0 },
+            { name: '侧面细节', position: [2.7, -0.25, 3.0], yaw: -2.45, pitch: 0, duration: 4.2, poi: 1 },
+            { name: '地面质量', position: [0.5, -0.18, 5.0], yaw: Math.PI, pitch: 0.08, duration: 4.0, poi: 2 },
+            { name: '数字保存', position: [-2.6, -0.35, 5.8], yaw: 2.95, pitch: 0.03, duration: 3.8, poi: 4 },
+            { name: 'AI 扩展', position: [2.8, -0.45, 6.0], yaw: -2.8, pitch: 0.02, duration: 3.8, poi: 5 }
         ];
 
         function showToast(msg) {
@@ -846,6 +1035,7 @@
                 style: currentStyle,
                 camera: cameraSnapshot()
             });
+            updateSessionSummary();
         }
 
         function styleLabel(style) {
@@ -883,6 +1073,43 @@
             }
             logEvent('quality_change', { quality: currentQuality, label: setting.label });
             showToast(`画质：${setting.label}`);
+        }
+
+        function setPanelTab(tab) {
+            panelTabs.forEach((button) => {
+                button.classList.toggle('active', button.dataset.panelTab === tab);
+            });
+            panelPages.forEach((page) => {
+                page.classList.toggle('active', page.dataset.panelPage === tab);
+            });
+            logEvent('panel_tab', { tab });
+        }
+
+        function updateSessionSummary() {
+            if (!summaryTime) return;
+            summaryTime.textContent = `${Math.floor((performance.now() - startTime) / 1000)}s`;
+            summaryEvents.textContent = sessionEvents.length;
+            summaryPoi.textContent = poiClicks;
+            summaryPhotos.textContent = savedPhotos.length;
+            const last = sessionEvents[sessionEvents.length - 1];
+            summaryLastEvent.textContent = last ? `最近事件：${last.type} · ${last.elapsedSec}s` : '暂无事件。';
+        }
+
+        function clearSessionLog() {
+            sessionEvents.length = 0;
+            poiClicks = 0;
+            metricPoi.textContent = '0';
+            updateSessionSummary();
+            showToast('已清空评估记录');
+        }
+
+        function bindRange(input, output, onChange) {
+            const update = () => {
+                output.textContent = input.value;
+                onChange(Number(input.value));
+            };
+            input.addEventListener('input', update);
+            update();
         }
 
         function speak(text) {
@@ -999,10 +1226,11 @@
                 photoList.appendChild(empty);
                 return;
             }
-            savedPhotos.slice().reverse().forEach((file) => {
+            savedPhotos.slice().reverse().forEach((photo) => {
+                const file = typeof photo === 'string' ? photo : photo.file;
                 const button = document.createElement('button');
                 button.className = 'panel-btn';
-                button.textContent = file;
+                button.innerHTML = `${file}<br><span style="color:rgba(255,255,255,0.55);font-size:10px">${typeof photo === 'string' ? '本地照片' : `${photo.poi || '自由视角'} · ${photo.style} · ${photo.time}`}</span>`;
                 button.title = `本地 screenshots/${file}`;
                 button.addEventListener('click', () => {
                     showToast(`本地文件：screenshots/${file}`);
@@ -1222,7 +1450,12 @@
                 });
                 const result = await response.json();
                 if (!result.ok) throw new Error(result.error || '保存失败');
-                savedPhotos.push(result.file);
+                savedPhotos.push({
+                    file: result.file,
+                    style: styleLabel(currentStyle),
+                    poi: activePoiIndex === null ? '自由视角' : pois[activePoiIndex].title,
+                    time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+                });
                 metricPhotos.textContent = savedPhotos.length;
                 renderPhotoList();
                 logEvent('photo_capture', { file: result.file, style: currentStyle, filtered: true, postcard: currentStyle === 'postcard' });
@@ -1270,9 +1503,32 @@
             pitch = clamp(pitch + mouseDirection * dy * mouseSensitivity, -pitchLimit, pitchLimit);
             applyFirstPersonLook();
         }, true);
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            isTouchLooking = true;
+            lastTouchX = e.touches[0].clientX;
+            lastTouchY = e.touches[0].clientY;
+        }, { passive: true });
+        container.addEventListener('touchmove', (e) => {
+            if (!isTouchLooking || e.touches.length !== 1) return;
+            const touch = e.touches[0];
+            const dx = touch.clientX - lastTouchX;
+            const dy = touch.clientY - lastTouchY;
+            lastTouchX = touch.clientX;
+            lastTouchY = touch.clientY;
+            yaw += mouseDirection * dx * mouseSensitivity * 1.35;
+            pitch = clamp(pitch + mouseDirection * dy * mouseSensitivity * 1.35, -pitchLimit, pitchLimit);
+            applyFirstPersonLook();
+        }, { passive: true });
+        container.addEventListener('touchend', () => {
+            isTouchLooking = false;
+        }, { passive: true });
 
         modeButtons.forEach((button) => {
             button.addEventListener('click', () => setMode(button.dataset.mode));
+        });
+        panelTabs.forEach((button) => {
+            button.addEventListener('click', () => setPanelTab(button.dataset.panelTab));
         });
         styleButtons.forEach((button) => {
             button.addEventListener('click', () => setVisualStyle(button.dataset.style));
@@ -1303,7 +1559,34 @@
         });
         helpCloseBtn.addEventListener('click', () => helpPanel.classList.add('hidden'));
         exportLogBtn.addEventListener('click', () => exportSessionLog());
+        exportLogBtn2.addEventListener('click', () => exportSessionLog());
+        clearLogBtn.addEventListener('click', () => clearSessionLog());
         shareViewBtn.addEventListener('click', () => copyCurrentViewLink());
+        touchPhotoBtn.addEventListener('click', () => capturePhoto());
+        document.querySelectorAll('[data-touch-key]').forEach((button) => {
+            const key = button.dataset.touchKey;
+            const setKey = (value) => {
+                keys[key] = value;
+                keys[key.toUpperCase()] = value;
+            };
+            button.addEventListener('pointerdown', (event) => {
+                event.preventDefault();
+                setKey(true);
+            });
+            button.addEventListener('pointerup', () => setKey(false));
+            button.addEventListener('pointercancel', () => setKey(false));
+            button.addEventListener('pointerleave', () => setKey(false));
+        });
+        bindRange(speedRange, speedRangeValue, (value) => {
+            moveSpeedNormal = value;
+            moveSpeedFast = value * 2.5;
+        });
+        bindRange(mouseRange, mouseRangeValue, (value) => {
+            mouseSensitivity = value;
+        });
+        bindRange(heightRange, heightRangeValue, (value) => {
+            heightStep = value;
+        });
         buildPanelLists();
         buildPOILabels();
         updateTourControls();
@@ -1509,6 +1792,28 @@
             }
 
             const cam = viewer.camera.position;
+            radarCtx.strokeStyle = 'rgba(96,165,250,0.55)';
+            radarCtx.lineWidth = 2;
+            radarCtx.beginPath();
+            tourRoute.forEach((step, index) => {
+                const x = cx + (step.position[0] - cam.x) * scale;
+                const y = cy + (step.position[2] - cam.z) * scale;
+                if (index === 0) radarCtx.moveTo(x, y);
+                else radarCtx.lineTo(x, y);
+            });
+            radarCtx.stroke();
+
+            const nextStep = tourRoute[(tourSegment + 1) % tourRoute.length];
+            if (nextStep) {
+                const x = cx + (nextStep.position[0] - cam.x) * scale;
+                const y = cy + (nextStep.position[2] - cam.z) * scale;
+                radarCtx.strokeStyle = '#fbbf24';
+                radarCtx.lineWidth = 2;
+                radarCtx.beginPath();
+                radarCtx.arc(x, y, 6, 0, Math.PI * 2);
+                radarCtx.stroke();
+            }
+
             radarCtx.fillStyle = '#fbbf24';
             pois.forEach((poi) => {
                 const x = cx + (poi.position.x - cam.x) * scale;
@@ -1542,6 +1847,7 @@
                 fpsFrames = 0;
                 metricFps.textContent = currentFps;
                 metricTime.textContent = `${Math.floor((performance.now() - startTime) / 1000)}s`;
+                updateSessionSummary();
             }
         }
 
