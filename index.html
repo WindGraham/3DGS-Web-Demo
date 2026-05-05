@@ -165,6 +165,7 @@
         .photo-mode #controls-hint,
         .photo-mode #mode-bar,
         .photo-mode #guide-panel,
+        .photo-mode #poi-label-layer,
         .photo-mode #radar-panel,
         .photo-mode #crosshair { display: none; }
         #mode-bar {
@@ -210,6 +211,54 @@
             z-index: 55;
             backdrop-filter: blur(4px);
         }
+        #poi-label-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 45;
+            pointer-events: none;
+            font-family: sans-serif;
+        }
+        .poi-label {
+            position: absolute;
+            transform: translate(-50%, -120%);
+            color: #fff;
+            background: rgba(15,23,42,0.76);
+            border: 1px solid rgba(251,191,36,0.55);
+            border-radius: 8px;
+            padding: 6px 8px;
+            min-width: 86px;
+            max-width: 150px;
+            pointer-events: auto;
+            cursor: pointer;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.28);
+            backdrop-filter: blur(5px);
+        }
+        .poi-label::after {
+            content: '';
+            position: absolute;
+            left: 50%; bottom: -7px;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 7px solid rgba(251,191,36,0.55);
+        }
+        .poi-label-title {
+            display: block;
+            font-size: 12px;
+            line-height: 1.25;
+            font-weight: 600;
+        }
+        .poi-label-meta {
+            display: block;
+            margin-top: 2px;
+            color: rgba(255,255,255,0.62);
+            font-size: 10px;
+        }
+        .poi-label.active {
+            background: rgba(59,130,246,0.78);
+            border-color: rgba(147,197,253,0.9);
+        }
         .panel-section + .panel-section { margin-top: 14px; }
         .panel-title {
             color: rgba(255,255,255,0.72);
@@ -223,6 +272,44 @@
             text-align: left;
             line-height: 1.35;
         }
+        .panel-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+        }
+        .panel-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+        .compact-btn { text-align: center; padding: 7px 6px; }
+        .progress-shell {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #60a5fa, #fbbf24);
+            border-radius: 999px;
+            transition: width 0.12s linear;
+        }
+        .panel-note {
+            margin-top: 7px;
+            color: rgba(255,255,255,0.62);
+            line-height: 1.5;
+        }
+        .info-table {
+            display: grid;
+            grid-template-columns: 76px minmax(0, 1fr);
+            gap: 4px 8px;
+            color: rgba(255,255,255,0.78);
+            line-height: 1.45;
+        }
+        .info-table span:nth-child(odd) { color: rgba(255,255,255,0.46); }
         #poi-detail {
             margin-top: 8px;
             color: rgba(255,255,255,0.82);
@@ -253,7 +340,7 @@
         #radar-label { margin-top: 6px; text-align: center; }
         #metrics-panel {
             position: absolute;
-            left: 348px; bottom: 16px;
+            left: 520px; bottom: 16px;
             min-width: 178px;
             color: rgba(255,255,255,0.8);
             font-family: "SF Mono", Monaco, Consolas, monospace;
@@ -268,10 +355,69 @@
         }
         .photo-mode #metrics-panel { display: none; }
         .metric-value { float: right; color: #93c5fd; }
+        .overlay-panel {
+            position: absolute;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            width: min(520px, calc(100vw - 32px));
+            max-height: min(620px, calc(100vh - 32px));
+            overflow: auto;
+            z-index: 80;
+            color: #fff;
+            font-family: sans-serif;
+            background: rgba(3,7,18,0.86);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 12px;
+            padding: 18px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 18px 48px rgba(0,0,0,0.48);
+        }
+        .overlay-panel.hidden { display: none; }
+        .overlay-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .overlay-head h2 { font-size: 16px; }
+        .overlay-close {
+            width: 28px;
+            height: 28px;
+            text-align: center;
+            padding: 0;
+        }
+        .help-grid {
+            display: grid;
+            grid-template-columns: 104px minmax(0, 1fr);
+            gap: 8px 12px;
+            font-size: 13px;
+            line-height: 1.45;
+            color: rgba(255,255,255,0.82);
+        }
+        .help-grid div:nth-child(odd) { color: #93c5fd; }
+        @media (max-width: 980px), (max-height: 760px) {
+            #info { max-width: 250px; }
+            #guide-panel {
+                width: 250px;
+                top: 150px;
+                max-height: calc(100vh - 170px);
+            }
+            #metrics-panel { display: none; }
+            #controls-hint { font-size: 11px; max-width: 430px; }
+        }
+        @media (max-width: 720px) {
+            #guide-panel { display: none; }
+            #info { max-width: calc(100vw - 32px); }
+            #metrics-panel { display: none; }
+            #mode-bar { top: auto; bottom: 14px; }
+            #controls-hint { display: none; }
+        }
     </style>
 </head>
 <body>
     <div id="canvas-container"></div>
+    <div id="poi-label-layer"></div>
     <div id="crosshair"><div class="dot"></div></div>
 
     <div id="info">
@@ -323,6 +469,20 @@
             <div id="poi-detail">选择一个点位查看讲解。</div>
         </div>
         <div class="panel-section">
+            <div class="panel-title">导览控制</div>
+            <div class="panel-grid-3">
+                <button class="panel-btn compact-btn" id="tour-prev-btn">上一站</button>
+                <button class="panel-btn compact-btn" id="tour-toggle-btn">暂停</button>
+                <button class="panel-btn compact-btn" id="tour-next-btn">下一站</button>
+            </div>
+            <div class="panel-grid-2" style="margin-top:6px;">
+                <button class="panel-btn compact-btn" id="tour-speed-btn">速度 1.0x</button>
+                <button class="panel-btn compact-btn" id="tour-restart-btn">重播</button>
+            </div>
+            <div class="progress-shell"><div class="progress-bar" id="tour-progress-bar"></div></div>
+            <div class="panel-note" id="tour-status">导览未开始。</div>
+        </div>
+        <div class="panel-section">
             <div class="panel-title">视角书签</div>
             <div class="panel-list" id="bookmark-list">
                 <button class="panel-btn">入口视角</button>
@@ -349,6 +509,21 @@
             <div class="panel-list">
                 <button class="panel-btn" id="record-btn">开始录制 WebM</button>
             </div>
+            <div class="panel-note" id="record-status">未录制。</div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-title">系统信息</div>
+            <div class="info-table">
+                <span>模型</span><span>Train / iteration 30000</span>
+                <span>大小</span><span>约 256 MB</span>
+                <span>高斯</span><span>1,078,186</span>
+                <span>格式</span><span>PLY 点云实时加载</span>
+                <span>渲染</span><span>WebGL + gaussian-splats-3d</span>
+            </div>
+            <div class="panel-grid-2" style="margin-top:10px;">
+                <button class="panel-btn compact-btn" id="help-btn">帮助</button>
+                <button class="panel-btn compact-btn" id="export-log-btn">导出评估</button>
+            </div>
         </div>
     </div>
 
@@ -361,6 +536,8 @@
         <div>FPS <span class="metric-value" id="metric-fps">--</span></div>
         <div>运行 <span class="metric-value" id="metric-time">0s</span></div>
         <div>模式 <span class="metric-value" id="metric-mode">自由</span></div>
+        <div>风格 <span class="metric-value" id="metric-style">原始</span></div>
+        <div>录制 <span class="metric-value" id="metric-record">否</span></div>
         <div>POI <span class="metric-value" id="metric-poi">0</span></div>
         <div>照片 <span class="metric-value" id="metric-photos">0</span></div>
     </div>
@@ -372,6 +549,23 @@
     </div>
 
     <div id="mode-toast"></div>
+
+    <div class="overlay-panel hidden" id="help-panel">
+        <div class="overlay-head">
+            <h2>操作帮助</h2>
+            <button class="panel-btn overlay-close" id="help-close-btn">×</button>
+        </div>
+        <div class="help-grid">
+            <div>W / A / S / D</div><div>以游客相机为身体，在水平面内前后左右移动。</div>
+            <div>鼠标左键拖动</div><div>原地转头，调整观看方向，不绕点旋转。</div>
+            <div>鼠标右键点击</div><div>让屏幕中心准星水平对准点击位置。</div>
+            <div>Q / E</div><div>下降 / 上升，给用户手动调 z 轴高度。</div>
+            <div>Z / C / X</div><div>画面逆时针 / 顺时针旋转，X 回正。</div>
+            <div>F</div><div>保存当前视角照片；明信片风格会额外写入标题和坐标。</div>
+            <div>导览模式</div><div>系统按路线自动移动，可暂停、切站、调速。</div>
+            <div>导出评估</div><div>保存一次浏览会话的模式切换、POI 点击、拍照和录制记录。</div>
+        </div>
+    </div>
 
     <script type="importmap">
     {
@@ -386,6 +580,7 @@
         import * as THREE from 'three';
 
         const container = document.getElementById('canvas-container');
+        const poiLabelLayer = document.getElementById('poi-label-layer');
         const loading = document.getElementById('loading');
         const modeToast = document.getElementById('mode-toast');
         const poiList = document.getElementById('poi-list');
@@ -397,9 +592,23 @@
         const modeButtons = document.querySelectorAll('.mode-btn');
         const styleButtons = document.querySelectorAll('[data-style]');
         const recordBtn = document.getElementById('record-btn');
+        const recordStatus = document.getElementById('record-status');
+        const tourPrevBtn = document.getElementById('tour-prev-btn');
+        const tourToggleBtn = document.getElementById('tour-toggle-btn');
+        const tourNextBtn = document.getElementById('tour-next-btn');
+        const tourSpeedBtn = document.getElementById('tour-speed-btn');
+        const tourRestartBtn = document.getElementById('tour-restart-btn');
+        const tourProgressBar = document.getElementById('tour-progress-bar');
+        const tourStatus = document.getElementById('tour-status');
+        const helpBtn = document.getElementById('help-btn');
+        const helpPanel = document.getElementById('help-panel');
+        const helpCloseBtn = document.getElementById('help-close-btn');
+        const exportLogBtn = document.getElementById('export-log-btn');
         const metricFps = document.getElementById('metric-fps');
         const metricTime = document.getElementById('metric-time');
         const metricMode = document.getElementById('metric-mode');
+        const metricStyle = document.getElementById('metric-style');
+        const metricRecord = document.getElementById('metric-record');
         const metricPoi = document.getElementById('metric-poi');
         const metricPhotos = document.getElementById('metric-photos');
 
@@ -450,6 +659,7 @@
                 capturePhoto();
             }
             if (e.key === 'Escape') {
+                helpPanel.classList.add('hidden');
                 setMode('free');
             }
             if (["Space"].includes(e.key)) {
@@ -489,8 +699,12 @@
         let lastMouseX = 0;
         let lastMouseY = 0;
         let appMode = 'free';
+        let activePoiIndex = null;
         let tourSegment = 0;
         let tourProgress = 0;
+        let tourPaused = false;
+        let tourSpeedIndex = 1;
+        const tourSpeeds = [0.5, 1, 1.5, 2];
         let lastFrameTime = performance.now();
         let startTime = performance.now();
         let fpsAccumulator = 0;
@@ -499,30 +713,46 @@
         let poiClicks = 0;
         let mediaRecorder = null;
         let recordedChunks = [];
+        let recordingStartedAt = 0;
+        let currentStyle = 'normal';
         const savedPhotos = [];
+        const sessionEvents = [];
+        const poiLabelElements = [];
 
         const pois = [
             {
                 id: 'front',
                 title: '车头观测点',
+                category: '主体结构',
+                stay: '建议停留 20s',
+                narration: '约 18s',
                 position: new THREE.Vector3(-1.8, -0.25, 0.8),
                 text: '这里用于观察 Train 场景的主体结构。3DGS 会把多视角照片重建成大量可实时渲染的高斯椭球。'
             },
             {
                 id: 'side',
                 title: '车身侧面',
+                category: '细节观察',
+                stay: '建议停留 25s',
+                narration: '约 20s',
                 position: new THREE.Vector3(2.2, -0.25, 1.6),
                 text: '侧面区域适合观察 3DGS 对细长结构、边缘和遮挡关系的表达效果。'
             },
             {
                 id: 'track',
                 title: '轨道与地面',
+                category: '重建质量',
+                stay: '建议停留 30s',
+                narration: '约 22s',
                 position: new THREE.Vector3(0.4, -0.15, 3.8),
                 text: '地面与轨道能体现重建的几何连续性，也能暴露当前场景尚未做真实地面标定的问题。'
             },
             {
                 id: 'overview',
                 title: '整体导览视角',
+                category: '路线入口',
+                stay: '建议停留 15s',
+                narration: '约 16s',
                 position: new THREE.Vector3(0, -0.8, 6.2),
                 text: '从这里可以快速进入导览路线，展示从自由漫游到自动讲解的完整体验。'
             }
@@ -548,6 +778,35 @@
             setTimeout(() => modeToast.classList.remove('show'), 1500);
         }
 
+        function cameraSnapshot() {
+            if (!viewer.camera) return null;
+            return {
+                x: Number(viewer.camera.position.x.toFixed(3)),
+                y: Number(viewer.camera.position.y.toFixed(3)),
+                z: Number(viewer.camera.position.z.toFixed(3)),
+                yaw: Number(yaw.toFixed(4)),
+                pitch: Number(pitch.toFixed(4)),
+                roll: Number(roll.toFixed(4))
+            };
+        }
+
+        function logEvent(type, detail = {}) {
+            sessionEvents.push({
+                type,
+                detail,
+                time: new Date().toISOString(),
+                elapsedSec: Number(((performance.now() - startTime) / 1000).toFixed(2)),
+                mode: appMode,
+                style: currentStyle,
+                camera: cameraSnapshot()
+            });
+        }
+
+        function styleLabel(style) {
+            const labels = { normal: '原始', warm: '暖色', cool: '冷色', dusk: '黄昏', ink: '水墨', postcard: '明信片' };
+            return labels[style] || style;
+        }
+
         function speak(text) {
             if (!('speechSynthesis' in window)) {
                 showToast('当前浏览器不支持语音讲解');
@@ -567,8 +826,9 @@
                 button.classList.toggle('active', button.dataset.mode === mode);
             });
             if (mode === 'tour') {
-                tourSegment = 0;
-                tourProgress = 0;
+                if (tourSegment === 0 && tourProgress === 0) selectPOI(tourRoute[0].poi, false);
+                tourPaused = false;
+                updateTourControls();
                 showToast('导览模式');
             } else if (mode === 'photo') {
                 showToast('拍照模式：按 F 保存');
@@ -576,6 +836,7 @@
                 showToast('自由模式');
             }
             metricMode.textContent = mode === 'tour' ? '导览' : mode === 'photo' ? '拍照' : '自由';
+            logEvent('mode_change', { mode });
         }
 
         function setView(view) {
@@ -591,9 +852,13 @@
         function selectPOI(index, shouldSpeak = true) {
             const poi = pois[index];
             if (!poi) return;
+            activePoiIndex = index;
             poiClicks += 1;
             metricPoi.textContent = poiClicks;
-            poiDetail.innerHTML = `<strong>${poi.title}</strong><br>${poi.text}`;
+            poiDetail.innerHTML = `<strong>${poi.title}</strong><br><span style="color:rgba(255,255,255,0.58)">${poi.category} · ${poi.stay} · 讲解 ${poi.narration}</span><br>${poi.text}`;
+            poiLabelElements.forEach((label, labelIndex) => {
+                label.classList.toggle('active', labelIndex === index);
+            });
             const target = poi.position;
             const camera = viewer.camera;
             if (camera) {
@@ -604,6 +869,7 @@
                 applyFirstPersonLook();
             }
             if (shouldSpeak) speak(`${poi.title}。${poi.text}`);
+            logEvent('poi_select', { id: poi.id, title: poi.title, speak: shouldSpeak });
         }
 
         function buildPanelLists() {
@@ -611,7 +877,7 @@
             pois.forEach((poi, index) => {
                 const button = document.createElement('button');
                 button.className = 'panel-btn';
-                button.textContent = poi.title;
+                button.innerHTML = `${poi.title}<br><span style="color:rgba(255,255,255,0.55);font-size:10px">${poi.category} · ${poi.stay}</span>`;
                 button.addEventListener('click', () => selectPOI(index));
                 poiList.appendChild(button);
             });
@@ -628,6 +894,22 @@
             renderPhotoList();
         }
 
+        function buildPOILabels() {
+            poiLabelLayer.innerHTML = '';
+            poiLabelElements.length = 0;
+            pois.forEach((poi, index) => {
+                const label = document.createElement('button');
+                label.className = 'poi-label';
+                label.innerHTML = `<span class="poi-label-title">${poi.title}</span><span class="poi-label-meta">${poi.category}</span>`;
+                label.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    selectPOI(index);
+                });
+                poiLabelLayer.appendChild(label);
+                poiLabelElements.push(label);
+            });
+        }
+
         function renderPhotoList() {
             photoList.innerHTML = '';
             if (savedPhotos.length === 0) {
@@ -641,6 +923,11 @@
                 const button = document.createElement('button');
                 button.className = 'panel-btn';
                 button.textContent = file;
+                button.title = `本地 screenshots/${file}`;
+                button.addEventListener('click', () => {
+                    showToast(`本地文件：screenshots/${file}`);
+                    logEvent('photo_list_click', { file });
+                });
                 photoList.appendChild(button);
             });
         }
@@ -669,8 +956,10 @@
             styleButtons.forEach((button) => {
                 button.classList.toggle('active', button.dataset.style === style);
             });
-            const labels = { normal: '原始', warm: '暖色', cool: '冷色', dusk: '黄昏', ink: '水墨', postcard: '明信片' };
-            showToast(`风格：${labels[style] || style}`);
+            currentStyle = style;
+            metricStyle.textContent = styleLabel(style);
+            showToast(`风格：${styleLabel(style)}`);
+            logEvent('style_change', { style, label: styleLabel(style) });
         }
 
         function toggleRecording() {
@@ -701,10 +990,17 @@
                 link.remove();
                 URL.revokeObjectURL(url);
                 recordBtn.textContent = '开始录制 WebM';
+                recordStatus.textContent = '未录制。';
+                metricRecord.textContent = '否';
+                logEvent('record_stop', { chunks: recordedChunks.length, bytes: blob.size });
                 showToast('视频已导出');
             };
             mediaRecorder.start();
+            recordingStartedAt = performance.now();
             recordBtn.textContent = '停止并下载视频';
+            recordStatus.textContent = '录制中 0s';
+            metricRecord.textContent = '0s';
+            logEvent('record_start', {});
             showToast('开始录制当前画面');
         }
 
@@ -778,6 +1074,33 @@
             return new Promise((resolve) => requestAnimationFrame(() => resolve()));
         }
 
+        function makePostcardImage(sourceCanvas) {
+            const output = document.createElement('canvas');
+            output.width = sourceCanvas.width;
+            output.height = sourceCanvas.height;
+            const ctx = output.getContext('2d');
+            ctx.drawImage(sourceCanvas, 0, 0);
+            const pad = Math.max(28, Math.round(output.width * 0.025));
+            const title = activePoiIndex === null ? '3DGS Train Virtual Tour' : `${pois[activePoiIndex].title} · 3DGS Virtual Tour`;
+            const cam = cameraSnapshot();
+            const coord = cam ? `X ${cam.x}  Y ${cam.y}  Z ${cam.z} · ${styleLabel(currentStyle)}` : styleLabel(currentStyle);
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(0,0,0,0.38)';
+            ctx.fillRect(0, output.height - pad * 3.2, output.width, pad * 3.2);
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.font = `600 ${Math.max(20, Math.round(output.width * 0.018))}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(title, pad, output.height - pad * 1.72);
+            ctx.fillStyle = 'rgba(255,255,255,0.72)';
+            ctx.font = `400 ${Math.max(13, Math.round(output.width * 0.011))}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+            ctx.fillText(coord, pad, output.height - pad * 0.82);
+            ctx.textAlign = 'right';
+            ctx.fillText('AI + 文旅 · 3D Gaussian Splatting', output.width - pad, output.height - pad * 0.82);
+            ctx.restore();
+
+            return output.toDataURL('image/png');
+        }
+
         async function capturePhoto() {
             if (isCapturing || !viewer.renderer) return;
             isCapturing = true;
@@ -799,7 +1122,7 @@
                 if (typeof viewer.update === 'function') viewer.update();
                 await waitForFrame();
 
-                const image = canvas.toDataURL('image/png');
+                const image = currentStyle === 'postcard' ? makePostcardImage(canvas) : canvas.toDataURL('image/png');
                 const response = await fetch('/api/screenshot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -810,6 +1133,7 @@
                 savedPhotos.push(result.file);
                 metricPhotos.textContent = savedPhotos.length;
                 renderPhotoList();
+                logEvent('photo_capture', { file: result.file, postcard: currentStyle === 'postcard' });
                 showToast(`已保存：${result.file}`);
             } catch (err) {
                 console.error(err);
@@ -862,22 +1186,95 @@
             button.addEventListener('click', () => setVisualStyle(button.dataset.style));
         });
         recordBtn.addEventListener('click', () => toggleRecording());
+        tourPrevBtn.addEventListener('click', () => {
+            if (appMode !== 'tour') setMode('tour');
+            jumpTour(-1);
+        });
+        tourToggleBtn.addEventListener('click', () => {
+            if (appMode !== 'tour') setMode('tour');
+            tourPaused = !tourPaused;
+            updateTourControls();
+            logEvent('tour_pause_toggle', { paused: tourPaused });
+        });
+        tourNextBtn.addEventListener('click', () => {
+            if (appMode !== 'tour') setMode('tour');
+            jumpTour(1);
+        });
+        tourSpeedBtn.addEventListener('click', () => cycleTourSpeed());
+        tourRestartBtn.addEventListener('click', () => restartTour());
+        helpBtn.addEventListener('click', () => {
+            helpPanel.classList.remove('hidden');
+            logEvent('help_open', {});
+        });
+        helpCloseBtn.addEventListener('click', () => helpPanel.classList.add('hidden'));
+        exportLogBtn.addEventListener('click', () => exportSessionLog());
         buildPanelLists();
+        buildPOILabels();
+        updateTourControls();
+        logEvent('session_start', {});
 
         function lerpAngle(a, b, t) {
             let diff = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
             return a + diff * t;
         }
 
+        function updateTourControls() {
+            const routeName = tourRoute[(tourSegment + 1) % tourRoute.length]?.poi;
+            const poiName = typeof routeName === 'number' ? pois[routeName].title : '路线中';
+            const percent = Math.round(tourProgress * 100);
+            tourToggleBtn.textContent = tourPaused ? '继续' : '暂停';
+            tourSpeedBtn.textContent = `速度 ${tourSpeeds[tourSpeedIndex].toFixed(1)}x`;
+            tourProgressBar.style.width = `${percent}%`;
+            tourStatus.textContent = appMode === 'tour'
+                ? `第 ${tourSegment + 1}/${tourRoute.length} 段 · 目标：${poiName} · ${percent}%${tourPaused ? ' · 已暂停' : ''}`
+                : '导览未开始。';
+        }
+
+        function jumpTour(delta) {
+            tourSegment = (tourSegment + delta + tourRoute.length) % tourRoute.length;
+            tourProgress = 0;
+            const step = tourRoute[tourSegment];
+            setView({
+                position: step.position,
+                yaw: step.yaw,
+                pitch: step.pitch || 0,
+                roll: 0
+            });
+            if (typeof step.poi === 'number') selectPOI(step.poi, false);
+            updateTourControls();
+            logEvent('tour_jump', { segment: tourSegment });
+        }
+
+        function restartTour() {
+            tourSegment = 0;
+            tourProgress = 0;
+            tourPaused = false;
+            setMode('tour');
+            jumpTour(0);
+            logEvent('tour_restart', {});
+        }
+
+        function cycleTourSpeed() {
+            tourSpeedIndex = (tourSpeedIndex + 1) % tourSpeeds.length;
+            updateTourControls();
+            logEvent('tour_speed', { speed: tourSpeeds[tourSpeedIndex] });
+            showToast(`导览速度 ${tourSpeeds[tourSpeedIndex].toFixed(1)}x`);
+        }
+
         function updateTour(dt) {
             if (!viewer.camera || tourRoute.length < 2) return;
+            if (tourPaused) {
+                updateTourControls();
+                return;
+            }
             const start = tourRoute[tourSegment];
             const end = tourRoute[(tourSegment + 1) % tourRoute.length];
-            tourProgress += dt / end.duration;
+            tourProgress += (dt * tourSpeeds[tourSpeedIndex]) / end.duration;
             if (tourProgress >= 1) {
                 tourSegment = (tourSegment + 1) % tourRoute.length;
                 tourProgress = 0;
                 if (typeof end.poi === 'number') selectPOI(end.poi, true);
+                logEvent('tour_reach_waypoint', { segment: tourSegment, poi: end.poi });
             }
 
             const t = tourProgress * tourProgress * (3 - 2 * tourProgress);
@@ -889,6 +1286,64 @@
             pitch = THREE.MathUtils.lerp(start.pitch || 0, end.pitch || 0, t);
             roll = 0;
             applyFirstPersonLook();
+            updateTourControls();
+        }
+
+        function updatePOILabels() {
+            if (!viewer.camera) return;
+            const rect = container.getBoundingClientRect();
+            const camera = viewer.camera;
+            pois.forEach((poi, index) => {
+                const label = poiLabelElements[index];
+                if (!label) return;
+                const point = poi.position.clone().project(camera);
+                const inFront = point.z > -1 && point.z < 1;
+                const x = (point.x * 0.5 + 0.5) * rect.width;
+                const y = (-point.y * 0.5 + 0.5) * rect.height;
+                const visible = inFront && x > 8 && x < rect.width - 8 && y > 8 && y < rect.height - 8;
+                label.style.display = visible ? 'block' : 'none';
+                if (!visible) return;
+                label.style.left = `${x}px`;
+                label.style.top = `${y}px`;
+            });
+        }
+
+        function exportSessionLog() {
+            const payload = {
+                demo: '3DGS Web Demo',
+                scene: 'Train',
+                model: {
+                    file: 'models/train.ply',
+                    sizeMB: 256,
+                    gaussians: 1078186,
+                    iteration: 30000
+                },
+                summary: {
+                    durationSec: Number(((performance.now() - startTime) / 1000).toFixed(2)),
+                    poiClicks,
+                    photos: savedPhotos.length,
+                    events: sessionEvents.length
+                },
+                events: sessionEvents
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `3dgs_session_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            logEvent('session_export', { events: sessionEvents.length });
+            showToast('已导出评估记录 JSON');
+        }
+
+        function updateRecordingStatus() {
+            if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+            const seconds = Math.floor((performance.now() - recordingStartedAt) / 1000);
+            recordStatus.textContent = `录制中 ${seconds}s`;
+            metricRecord.textContent = `${seconds}s`;
         }
 
         function drawRadar() {
@@ -1022,6 +1477,8 @@
             const dt = Math.min((now - lastFrameTime) / 1000, 0.1);
             lastFrameTime = now;
             updateMovement(dt);
+            updatePOILabels();
+            updateRecordingStatus();
         }
 
         // ===== 加载场景 =====
