@@ -7,7 +7,12 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-        #canvas-container { width: 100%; height: 100%; }
+        #canvas-container { width: 100%; height: 100%; transition: filter 0.25s ease; }
+        body.style-warm #canvas-container { filter: sepia(0.18) saturate(1.18) contrast(1.04) brightness(1.04); }
+        body.style-cool #canvas-container { filter: saturate(0.9) hue-rotate(190deg) contrast(1.06) brightness(0.96); }
+        body.style-dusk #canvas-container { filter: sepia(0.35) saturate(1.35) hue-rotate(-18deg) brightness(0.84) contrast(1.12); }
+        body.style-ink #canvas-container { filter: grayscale(1) contrast(1.42) brightness(1.08); }
+        body.style-postcard #canvas-container { filter: sepia(0.45) saturate(0.9) contrast(1.12) brightness(1.04); }
 
         /* 左上角信息面板 */
         #info {
@@ -246,6 +251,23 @@
             border-radius: 8px;
         }
         #radar-label { margin-top: 6px; text-align: center; }
+        #metrics-panel {
+            position: absolute;
+            left: 348px; bottom: 16px;
+            min-width: 178px;
+            color: rgba(255,255,255,0.8);
+            font-family: "SF Mono", Monaco, Consolas, monospace;
+            font-size: 11px;
+            background: rgba(0,0,0,0.55);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px 12px;
+            z-index: 54;
+            line-height: 1.7;
+            backdrop-filter: blur(4px);
+        }
+        .photo-mode #metrics-panel { display: none; }
+        .metric-value { float: right; color: #93c5fd; }
     </style>
 </head>
 <body>
@@ -311,11 +333,36 @@
             <div class="panel-title">照片</div>
             <div class="panel-list" id="photo-list"></div>
         </div>
+        <div class="panel-section">
+            <div class="panel-title">风格 / 氛围</div>
+            <div class="panel-list" id="style-list">
+                <button class="panel-btn" data-style="normal">原始</button>
+                <button class="panel-btn" data-style="warm">暖色</button>
+                <button class="panel-btn" data-style="cool">冷色</button>
+                <button class="panel-btn" data-style="dusk">黄昏</button>
+                <button class="panel-btn" data-style="ink">水墨</button>
+                <button class="panel-btn" data-style="postcard">明信片</button>
+            </div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-title">视频导出</div>
+            <div class="panel-list">
+                <button class="panel-btn" id="record-btn">开始录制 WebM</button>
+            </div>
+        </div>
     </div>
 
     <div id="radar-panel">
         <canvas id="radar" width="128" height="128"></canvas>
         <div id="radar-label">导航雷达</div>
+    </div>
+
+    <div id="metrics-panel">
+        <div>FPS <span class="metric-value" id="metric-fps">--</span></div>
+        <div>运行 <span class="metric-value" id="metric-time">0s</span></div>
+        <div>模式 <span class="metric-value" id="metric-mode">自由</span></div>
+        <div>POI <span class="metric-value" id="metric-poi">0</span></div>
+        <div>照片 <span class="metric-value" id="metric-photos">0</span></div>
     </div>
 
     <div id="loading">
@@ -348,6 +395,13 @@
         const radarCanvas = document.getElementById('radar');
         const radarCtx = radarCanvas.getContext('2d');
         const modeButtons = document.querySelectorAll('.mode-btn');
+        const styleButtons = document.querySelectorAll('[data-style]');
+        const recordBtn = document.getElementById('record-btn');
+        const metricFps = document.getElementById('metric-fps');
+        const metricTime = document.getElementById('metric-time');
+        const metricMode = document.getElementById('metric-mode');
+        const metricPoi = document.getElementById('metric-poi');
+        const metricPhotos = document.getElementById('metric-photos');
 
         // ===== Three.js 场景辅助对象 =====
         const threeScene = new THREE.Scene();
@@ -438,6 +492,13 @@
         let tourSegment = 0;
         let tourProgress = 0;
         let lastFrameTime = performance.now();
+        let startTime = performance.now();
+        let fpsAccumulator = 0;
+        let fpsFrames = 0;
+        let currentFps = 0;
+        let poiClicks = 0;
+        let mediaRecorder = null;
+        let recordedChunks = [];
         const savedPhotos = [];
 
         const pois = [
@@ -514,6 +575,7 @@
             } else {
                 showToast('自由模式');
             }
+            metricMode.textContent = mode === 'tour' ? '导览' : mode === 'photo' ? '拍照' : '自由';
         }
 
         function setView(view) {
@@ -529,6 +591,8 @@
         function selectPOI(index, shouldSpeak = true) {
             const poi = pois[index];
             if (!poi) return;
+            poiClicks += 1;
+            metricPoi.textContent = poiClicks;
             poiDetail.innerHTML = `<strong>${poi.title}</strong><br>${poi.text}`;
             const target = poi.position;
             const camera = viewer.camera;
@@ -596,6 +660,52 @@
                 marker.position.copy(poi.position);
                 threeScene.add(marker);
             });
+        }
+
+        function setVisualStyle(style) {
+            const styles = ['warm', 'cool', 'dusk', 'ink', 'postcard'];
+            document.body.classList.remove(...styles.map((name) => `style-${name}`));
+            if (style !== 'normal') document.body.classList.add(`style-${style}`);
+            styleButtons.forEach((button) => {
+                button.classList.toggle('active', button.dataset.style === style);
+            });
+            const labels = { normal: '原始', warm: '暖色', cool: '冷色', dusk: '黄昏', ink: '水墨', postcard: '明信片' };
+            showToast(`风格：${labels[style] || style}`);
+        }
+
+        function toggleRecording() {
+            if (!viewer.renderer) return;
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                return;
+            }
+            const canvas = viewer.renderer.domElement;
+            if (!canvas.captureStream || typeof MediaRecorder === 'undefined') {
+                showToast('当前浏览器不支持视频录制');
+                return;
+            }
+            recordedChunks = [];
+            const stream = canvas.captureStream(30);
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) recordedChunks.push(event.data);
+            };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `3dgs_tour_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                recordBtn.textContent = '开始录制 WebM';
+                showToast('视频已导出');
+            };
+            mediaRecorder.start();
+            recordBtn.textContent = '停止并下载视频';
+            showToast('开始录制当前画面');
         }
 
         function getCompassHeading(direction) {
@@ -698,6 +808,7 @@
                 const result = await response.json();
                 if (!result.ok) throw new Error(result.error || '保存失败');
                 savedPhotos.push(result.file);
+                metricPhotos.textContent = savedPhotos.length;
                 renderPhotoList();
                 showToast(`已保存：${result.file}`);
             } catch (err) {
@@ -747,6 +858,10 @@
         modeButtons.forEach((button) => {
             button.addEventListener('click', () => setMode(button.dataset.mode));
         });
+        styleButtons.forEach((button) => {
+            button.addEventListener('click', () => setVisualStyle(button.dataset.style));
+        });
+        recordBtn.addEventListener('click', () => toggleRecording());
         buildPanelLists();
 
         function lerpAngle(a, b, t) {
@@ -819,8 +934,21 @@
             radarCtx.restore();
         }
 
+        function updateMetrics(dt) {
+            fpsAccumulator += dt;
+            fpsFrames += 1;
+            if (fpsAccumulator >= 0.5) {
+                currentFps = Math.round(fpsFrames / fpsAccumulator);
+                fpsAccumulator = 0;
+                fpsFrames = 0;
+                metricFps.textContent = currentFps;
+                metricTime.textContent = `${Math.floor((performance.now() - startTime) / 1000)}s`;
+            }
+        }
+
         function updateMovement(dt) {
             if (!viewer.camera || !viewer.controls) return;
+            updateMetrics(dt);
 
             const camera = viewer.camera;
             const isShift = keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight'];
