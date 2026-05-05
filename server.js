@@ -4,9 +4,30 @@ const path = require('path');
 const url = require('url');
 
 const PORT = process.env.PORT || 8080;
-const MODEL_PATH = fs.existsSync(path.join(__dirname, 'models', 'train.ply'))
-    ? path.join(__dirname, 'models', 'train.ply')
-    : '/home/graham/Science/3DGS/02_复现代码/3DGS_Project/output/train/point_cloud/iteration_30000/point_cloud.ply';
+const MODEL_MAP = {
+    train: {
+        title: 'Train 30k 全量',
+        path: fs.existsSync(path.join(__dirname, 'models', 'train.ply'))
+            ? path.join(__dirname, 'models', 'train.ply')
+            : '/home/graham/Science/3DGS/02_复现代码/3DGS_Project/output/train/point_cloud/iteration_30000/point_cloud.ply'
+    },
+    train7k: {
+        title: 'Train 7k 快速版',
+        path: '/home/graham/Science/3DGS/02_复现代码/3DGS_Project/output/train/point_cloud/iteration_7000/point_cloud.ply'
+    },
+    sh0: {
+        title: 'Train SH=0 消融',
+        path: '/home/graham/Science/3DGS/03_实验结果/2026-03-22_最终复现交付/01_解压结果/导出结果目录/ablations_train_eval_clean/sh_degree_0_model/point_cloud/iteration_30000/point_cloud.ply'
+    },
+    isotropic: {
+        title: 'Train Isotropic 消融',
+        path: '/home/graham/Science/3DGS/03_实验结果/2026-03-22_最终复现交付/01_解压结果/导出结果目录/ablations_train_eval_clean/isotropic_model/point_cloud/iteration_30000/point_cloud.ply'
+    },
+    trainEval: {
+        title: 'Train Eval 30k',
+        path: '/home/graham/Science/3DGS/03_实验结果/2026-03-22_最终复现交付/01_解压结果/导出结果目录/train_eval/point_cloud/iteration_30000/point_cloud.ply'
+    }
+};
 const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 
 const mimeTypes = {
@@ -52,9 +73,25 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // Route /models/train.ply to the actual file
-    if (pathname === '/models/train.ply') {
-        serveFile(res, MODEL_PATH, 'application/octet-stream', true);
+    if (pathname === '/api/models') {
+        const models = Object.entries(MODEL_MAP).map(([id, model]) => {
+            let size = 0;
+            try {
+                size = fs.statSync(model.path).size;
+            } catch {
+                size = 0;
+            }
+            return { id, title: model.title, size };
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, models }));
+        return;
+    }
+
+    const modelMatch = /^\/models\/([a-zA-Z0-9_-]+)\.ply$/.exec(pathname);
+    if (modelMatch) {
+        const model = MODEL_MAP[modelMatch[1]] || MODEL_MAP.train;
+        serveFile(res, model.path, 'application/octet-stream', true);
         return;
     }
 
@@ -186,5 +223,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`3DGS Web Demo 服务器已启动`);
     console.log(`本地访问: http://localhost:${PORT}`);
     console.log(`网络访问: http://0.0.0.0:${PORT}`);
-    console.log(`模型文件: ${MODEL_PATH}`);
+    console.log(`模型文件: ${MODEL_MAP.train.path}`);
 });

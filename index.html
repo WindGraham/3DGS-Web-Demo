@@ -588,9 +588,9 @@
 
     <div id="info">
         <h1>3DGS 实时漫游 Demo</h1>
-        <div><span class="tag">场景</span> Train（Tanks and Temples）</div>
-        <div><span class="tag">迭代</span> 30,000 steps</div>
-        <div><span class="tag">高斯</span> ~108万</div>
+        <div><span class="tag">场景</span> <span id="info-scene">Train（Tanks and Temples）</span></div>
+        <div><span class="tag">版本</span> <span id="info-model">30,000 steps</span></div>
+        <div><span class="tag">高斯</span> <span id="info-gaussians">~108万</span></div>
         <div style="margin-top:6px;opacity:0.7;font-size:11px;">
             左键拖动转头 · 右键对准点击点<br>
             WASD 移动 · F 拍照 · M 切鼠标方向
@@ -851,6 +851,9 @@
         const subtitlePanel = document.getElementById('subtitle-panel');
         const loading = document.getElementById('loading');
         const modeToast = document.getElementById('mode-toast');
+        const infoScene = document.getElementById('info-scene');
+        const infoModel = document.getElementById('info-model');
+        const infoGaussians = document.getElementById('info-gaussians');
         const poiList = document.getElementById('poi-list');
         const poiDetail = document.getElementById('poi-detail');
         const bookmarkList = document.getElementById('bookmark-list');
@@ -1047,11 +1050,62 @@
             quality: { label: '高清', ratio: 1.45 }
         };
         const sceneOptions = [
-            { id: 'train', title: 'Train 当前场景', status: '已接入', note: 'Tanks and Temples / 约108万高斯', active: true },
-            { id: 'truck', title: 'Truck 室外景点', status: '待接入', note: '适合验证大尺度室外漫游', active: false },
-            { id: 'playroom', title: 'Playroom 室内展陈', status: '待接入', note: '适合做展馆/室内遗产示例', active: false },
-            { id: 'drjohnson', title: 'DrJohnson 叙事场景', status: '待接入', note: '适合人物故事和讲解脚本', active: false }
+            {
+                id: 'train',
+                title: 'Train 30k 全量',
+                status: '已接入',
+                note: '267 MB / 约108万高斯 / 当前主展示',
+                version: '30,000 steps',
+                gaussians: '~108万',
+                size: '267 MB',
+                quality: '最高质量，加载最慢'
+            },
+            {
+                id: 'train7k',
+                title: 'Train 7k 快速版',
+                status: '已接入',
+                note: '184 MB / 早期迭代 / 加载更快',
+                version: '7,000 steps',
+                gaussians: '约74万',
+                size: '184 MB',
+                quality: '训练较短，细节更少'
+            },
+            {
+                id: 'sh0',
+                title: 'Train SH=0 消融',
+                status: '已接入',
+                note: '72 MB / 无球谐颜色 / 更轻量',
+                version: 'SH degree 0',
+                gaussians: '约29万',
+                size: '72 MB',
+                quality: '观察去掉视角相关颜色后的效果'
+            },
+            {
+                id: 'isotropic',
+                title: 'Train Isotropic 消融',
+                status: '已接入',
+                note: '170 MB / 各向同性高斯 / 形状消融',
+                version: 'Isotropic covariance',
+                gaussians: '约68万',
+                size: '170 MB',
+                quality: '观察高斯形状约束带来的质量变化'
+            },
+            {
+                id: 'trainEval',
+                title: 'Train Eval 30k',
+                status: '已接入',
+                note: '271 MB / 复现交付目录 / 对照版本',
+                version: 'Eval 30,000 steps',
+                gaussians: '~109万',
+                size: '271 MB',
+                quality: '用于和最终复现交付结果对照'
+            },
+            { id: 'truck', title: 'Truck 输入点云', status: '仅占位', note: '本地只有 input.ply，非 3DGS 高斯模型', version: '未接入', gaussians: '--', size: '3.7 MB', quality: '暂不送入 3DGS 渲染器' },
+            { id: 'garden', title: 'Garden mesh', status: '仅占位', note: '本地是 mesh.ply，非当前 splat 渲染格式', version: '未接入', gaussians: '--', size: '132 MB', quality: '需要 Three.js mesh 管线或转换' }
         ];
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeModelId = sceneOptions.some((scene) => scene.id === urlParams.get('model')) ? urlParams.get('model') : 'train';
+        const activeScene = sceneOptions.find((scene) => scene.id === activeModelId) || sceneOptions[0];
 
         const pois = [
             {
@@ -1130,6 +1184,17 @@
             modeToast.textContent = msg;
             modeToast.classList.add('show');
             setTimeout(() => modeToast.classList.remove('show'), 1500);
+        }
+
+        function applySceneInfo() {
+            infoScene.textContent = 'Train（Tanks and Temples）';
+            infoModel.textContent = activeScene.version;
+            infoGaussians.textContent = activeScene.gaussians;
+            const rows = document.querySelectorAll('.info-table span');
+            rows.forEach((row, index) => {
+                if (row.textContent === '模型') rows[index + 1].textContent = activeScene.title;
+                if (row.textContent === '大小') rows[index + 1].textContent = activeScene.size;
+            });
         }
 
         function cameraSnapshot() {
@@ -1357,11 +1422,24 @@
             sceneList.innerHTML = '';
             sceneOptions.forEach((scene) => {
                 const card = document.createElement('button');
-                card.className = `panel-btn scene-card${scene.active ? ' active' : ''}`;
+                const active = scene.id === activeModelId;
+                const canLoad = scene.status === '已接入';
+                card.className = `panel-btn scene-card${active ? ' active' : ''}`;
                 card.innerHTML = `<strong>${scene.title}</strong><span>${scene.status} · ${scene.note}</span>`;
                 card.addEventListener('click', () => {
-                    showToast(scene.active ? '当前已在 Train 场景' : `${scene.title}：先保留入口，后续接模型`);
-                    logEvent('scene_select', { id: scene.id, active: scene.active });
+                    if (!canLoad) {
+                        showToast(`${scene.title}：${scene.quality}`);
+                        logEvent('scene_select_unavailable', { id: scene.id });
+                        return;
+                    }
+                    if (active) {
+                        showToast('当前已加载这个模型版本');
+                        return;
+                    }
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('model', scene.id);
+                    logEvent('scene_switch', { id: scene.id, title: scene.title });
+                    window.location.search = params.toString();
                 });
                 sceneList.appendChild(card);
             });
@@ -1875,6 +1953,7 @@
         buildPanelLists();
         buildPOILabels();
         updateTourControls();
+        applySceneInfo();
         logEvent('session_start', {});
 
         function lerpAngle(a, b, t) {
@@ -1977,10 +2056,12 @@
                 demo: '3DGS Web Demo',
                 scene: 'Train',
                 model: {
-                    file: 'models/train.ply',
-                    sizeMB: 256,
-                    gaussians: 1078186,
-                    iteration: 30000
+                    id: activeModelId,
+                    title: activeScene.title,
+                    file: `models/${activeModelId}.ply`,
+                    size: activeScene.size,
+                    gaussians: activeScene.gaussians,
+                    version: activeScene.version
                 },
                 summary: {
                     durationSec: Number(((performance.now() - startTime) / 1000).toFixed(2)),
@@ -2317,7 +2398,8 @@
         }
 
         // ===== 加载场景 =====
-        viewer.addSplatScene('./models/train.ply', {
+        loading.querySelector('.sub').textContent = `${activeScene.title} · ${activeScene.note}`;
+        viewer.addSplatScene(`./models/${activeModelId}.ply`, {
             'splatAlphaRemovalThreshold': 5,
             'showLoadingUI': false,
             'position': [0, 0, 0],
