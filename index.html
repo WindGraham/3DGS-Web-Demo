@@ -166,6 +166,7 @@
         .photo-mode #mode-bar,
         .photo-mode #guide-panel,
         .photo-mode #poi-label-layer,
+        .photo-mode #subtitle-panel,
         .photo-mode #radar-panel,
         .photo-mode #crosshair { display: none; }
         #mode-bar {
@@ -191,7 +192,7 @@
             font-size: 12px;
             cursor: pointer;
         }
-        .mode-btn.active, .panel-btn:hover {
+        .mode-btn.active, .panel-btn.active, .panel-btn:hover {
             background: rgba(59,130,246,0.45);
             border-color: rgba(147,197,253,0.55);
         }
@@ -355,6 +356,27 @@
         }
         .photo-mode #metrics-panel { display: none; }
         .metric-value { float: right; color: #93c5fd; }
+        #subtitle-panel {
+            position: absolute;
+            left: 50%;
+            bottom: 92px;
+            transform: translateX(-50%);
+            width: min(640px, calc(100vw - 360px));
+            min-height: 42px;
+            color: rgba(255,255,255,0.92);
+            font-family: sans-serif;
+            font-size: 14px;
+            line-height: 1.55;
+            text-align: center;
+            background: rgba(0,0,0,0.54);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px 14px;
+            z-index: 52;
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+        }
+        #subtitle-panel.hidden { display: none; }
         .overlay-panel {
             position: absolute;
             left: 50%; top: 50%;
@@ -405,6 +427,10 @@
             }
             #metrics-panel { display: none; }
             #controls-hint { font-size: 11px; max-width: 430px; }
+            #subtitle-panel {
+                width: min(520px, calc(100vw - 320px));
+                font-size: 12px;
+            }
         }
         @media (max-width: 720px) {
             #guide-panel { display: none; }
@@ -412,12 +438,14 @@
             #metrics-panel { display: none; }
             #mode-bar { top: auto; bottom: 14px; }
             #controls-hint { display: none; }
+            #subtitle-panel { width: calc(100vw - 32px); bottom: 76px; }
         }
     </style>
 </head>
 <body>
     <div id="canvas-container"></div>
     <div id="poi-label-layer"></div>
+    <div id="subtitle-panel" class="hidden"></div>
     <div id="crosshair"><div class="dot"></div></div>
 
     <div id="info">
@@ -520,10 +548,17 @@
                 <span>格式</span><span>PLY 点云实时加载</span>
                 <span>渲染</span><span>WebGL + gaussian-splats-3d</span>
             </div>
+            <div class="panel-title" style="margin-top:10px;">画质档位</div>
+            <div class="panel-grid-3">
+                <button class="panel-btn compact-btn" data-quality="performance">流畅</button>
+                <button class="panel-btn compact-btn active" data-quality="balanced">均衡</button>
+                <button class="panel-btn compact-btn" data-quality="quality">高清</button>
+            </div>
             <div class="panel-grid-2" style="margin-top:10px;">
                 <button class="panel-btn compact-btn" id="help-btn">帮助</button>
                 <button class="panel-btn compact-btn" id="export-log-btn">导出评估</button>
             </div>
+            <button class="panel-btn compact-btn" id="share-view-btn" style="margin-top:6px;">复制当前视角链接</button>
         </div>
     </div>
 
@@ -537,6 +572,7 @@
         <div>运行 <span class="metric-value" id="metric-time">0s</span></div>
         <div>模式 <span class="metric-value" id="metric-mode">自由</span></div>
         <div>风格 <span class="metric-value" id="metric-style">原始</span></div>
+        <div>画质 <span class="metric-value" id="metric-quality">均衡</span></div>
         <div>录制 <span class="metric-value" id="metric-record">否</span></div>
         <div>POI <span class="metric-value" id="metric-poi">0</span></div>
         <div>照片 <span class="metric-value" id="metric-photos">0</span></div>
@@ -581,6 +617,7 @@
 
         const container = document.getElementById('canvas-container');
         const poiLabelLayer = document.getElementById('poi-label-layer');
+        const subtitlePanel = document.getElementById('subtitle-panel');
         const loading = document.getElementById('loading');
         const modeToast = document.getElementById('mode-toast');
         const poiList = document.getElementById('poi-list');
@@ -604,10 +641,13 @@
         const helpPanel = document.getElementById('help-panel');
         const helpCloseBtn = document.getElementById('help-close-btn');
         const exportLogBtn = document.getElementById('export-log-btn');
+        const shareViewBtn = document.getElementById('share-view-btn');
+        const qualityButtons = document.querySelectorAll('[data-quality]');
         const metricFps = document.getElementById('metric-fps');
         const metricTime = document.getElementById('metric-time');
         const metricMode = document.getElementById('metric-mode');
         const metricStyle = document.getElementById('metric-style');
+        const metricQuality = document.getElementById('metric-quality');
         const metricRecord = document.getElementById('metric-record');
         const metricPoi = document.getElementById('metric-poi');
         const metricPhotos = document.getElementById('metric-photos');
@@ -715,9 +755,15 @@
         let recordedChunks = [];
         let recordingStartedAt = 0;
         let currentStyle = 'normal';
+        let currentQuality = 'balanced';
         const savedPhotos = [];
         const sessionEvents = [];
         const poiLabelElements = [];
+        const qualitySettings = {
+            performance: { label: '流畅', ratio: 0.75 },
+            balanced: { label: '均衡', ratio: 1 },
+            quality: { label: '高清', ratio: 1.45 }
+        };
 
         const pois = [
             {
@@ -807,6 +853,38 @@
             return labels[style] || style;
         }
 
+        function captureFilter(style) {
+            const filters = {
+                normal: 'none',
+                warm: 'sepia(0.18) saturate(1.18) contrast(1.04) brightness(1.04)',
+                cool: 'saturate(0.9) hue-rotate(190deg) contrast(1.06) brightness(0.96)',
+                dusk: 'sepia(0.35) saturate(1.35) hue-rotate(-18deg) brightness(0.84) contrast(1.12)',
+                ink: 'grayscale(1) contrast(1.42) brightness(1.08)',
+                postcard: 'sepia(0.45) saturate(0.9) contrast(1.12) brightness(1.04)'
+            };
+            return filters[style] || 'none';
+        }
+
+        function showSubtitle(text) {
+            subtitlePanel.textContent = text;
+            subtitlePanel.classList.toggle('hidden', !text);
+        }
+
+        function applyRenderQuality(quality) {
+            const setting = qualitySettings[quality] || qualitySettings.balanced;
+            currentQuality = qualitySettings[quality] ? quality : 'balanced';
+            qualityButtons.forEach((button) => {
+                button.classList.toggle('active', button.dataset.quality === currentQuality);
+            });
+            metricQuality.textContent = setting.label;
+            if (viewer.renderer) {
+                const ratio = Math.min(window.devicePixelRatio * setting.ratio, 2.2);
+                viewer.renderer.setPixelRatio(ratio);
+            }
+            logEvent('quality_change', { quality: currentQuality, label: setting.label });
+            showToast(`画质：${setting.label}`);
+        }
+
         function speak(text) {
             if (!('speechSynthesis' in window)) {
                 showToast('当前浏览器不支持语音讲解');
@@ -834,6 +912,7 @@
                 showToast('拍照模式：按 F 保存');
             } else {
                 showToast('自由模式');
+                showSubtitle('');
             }
             metricMode.textContent = mode === 'tour' ? '导览' : mode === 'photo' ? '拍照' : '自由';
             logEvent('mode_change', { mode });
@@ -856,6 +935,7 @@
             poiClicks += 1;
             metricPoi.textContent = poiClicks;
             poiDetail.innerHTML = `<strong>${poi.title}</strong><br><span style="color:rgba(255,255,255,0.58)">${poi.category} · ${poi.stay} · 讲解 ${poi.narration}</span><br>${poi.text}`;
+            showSubtitle(`${poi.title}：${poi.text}`);
             poiLabelElements.forEach((label, labelIndex) => {
                 label.classList.toggle('active', labelIndex === index);
             });
@@ -1074,12 +1154,20 @@
             return new Promise((resolve) => requestAnimationFrame(() => resolve()));
         }
 
-        function makePostcardImage(sourceCanvas) {
+        function makeFilteredCapture(sourceCanvas) {
             const output = document.createElement('canvas');
             output.width = sourceCanvas.width;
             output.height = sourceCanvas.height;
             const ctx = output.getContext('2d');
+            ctx.filter = captureFilter(currentStyle);
             ctx.drawImage(sourceCanvas, 0, 0);
+            ctx.filter = 'none';
+            return output;
+        }
+
+        function makePostcardImage(sourceCanvas) {
+            const output = makeFilteredCapture(sourceCanvas);
+            const ctx = output.getContext('2d');
             const pad = Math.max(28, Math.round(output.width * 0.025));
             const title = activePoiIndex === null ? '3DGS Train Virtual Tour' : `${pois[activePoiIndex].title} · 3DGS Virtual Tour`;
             const cam = cameraSnapshot();
@@ -1099,6 +1187,10 @@
             ctx.restore();
 
             return output.toDataURL('image/png');
+        }
+
+        function makeStyledImage(sourceCanvas) {
+            return makeFilteredCapture(sourceCanvas).toDataURL('image/png');
         }
 
         async function capturePhoto() {
@@ -1122,7 +1214,7 @@
                 if (typeof viewer.update === 'function') viewer.update();
                 await waitForFrame();
 
-                const image = currentStyle === 'postcard' ? makePostcardImage(canvas) : canvas.toDataURL('image/png');
+                const image = currentStyle === 'postcard' ? makePostcardImage(canvas) : makeStyledImage(canvas);
                 const response = await fetch('/api/screenshot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1133,7 +1225,7 @@
                 savedPhotos.push(result.file);
                 metricPhotos.textContent = savedPhotos.length;
                 renderPhotoList();
-                logEvent('photo_capture', { file: result.file, postcard: currentStyle === 'postcard' });
+                logEvent('photo_capture', { file: result.file, style: currentStyle, filtered: true, postcard: currentStyle === 'postcard' });
                 showToast(`已保存：${result.file}`);
             } catch (err) {
                 console.error(err);
@@ -1185,6 +1277,9 @@
         styleButtons.forEach((button) => {
             button.addEventListener('click', () => setVisualStyle(button.dataset.style));
         });
+        qualityButtons.forEach((button) => {
+            button.addEventListener('click', () => applyRenderQuality(button.dataset.quality));
+        });
         recordBtn.addEventListener('click', () => toggleRecording());
         tourPrevBtn.addEventListener('click', () => {
             if (appMode !== 'tour') setMode('tour');
@@ -1208,6 +1303,7 @@
         });
         helpCloseBtn.addEventListener('click', () => helpPanel.classList.add('hidden'));
         exportLogBtn.addEventListener('click', () => exportSessionLog());
+        shareViewBtn.addEventListener('click', () => copyCurrentViewLink());
         buildPanelLists();
         buildPOILabels();
         updateTourControls();
@@ -1337,6 +1433,54 @@
             URL.revokeObjectURL(url);
             logEvent('session_export', { events: sessionEvents.length });
             showToast('已导出评估记录 JSON');
+        }
+
+        function copyCurrentViewLink() {
+            const cam = cameraSnapshot();
+            if (!cam) {
+                showToast('相机尚未就绪');
+                return;
+            }
+            const params = new URLSearchParams({
+                x: cam.x,
+                y: cam.y,
+                z: cam.z,
+                yaw: cam.yaw,
+                pitch: cam.pitch,
+                roll: cam.roll,
+                style: currentStyle,
+                quality: currentQuality
+            });
+            const url = `${location.origin}${location.pathname}#view=${params.toString()}`;
+            const copy = navigator.clipboard?.writeText
+                ? navigator.clipboard.writeText(url)
+                : Promise.reject(new Error('clipboard unavailable'));
+            copy.then(() => {
+                showToast('已复制当前视角链接');
+            }).catch(() => {
+                location.hash = `view=${params.toString()}`;
+                showToast('已写入地址栏视角参数');
+            });
+            logEvent('share_view', { url });
+        }
+
+        function applyHashView() {
+            const raw = location.hash.replace(/^#view=?/, '');
+            if (!raw || !viewer.camera) return;
+            const params = new URLSearchParams(raw);
+            const values = ['x', 'y', 'z', 'yaw', 'pitch', 'roll'].map((key) => Number(params.get(key)));
+            if (values.some((value) => Number.isNaN(value))) return;
+            setView({
+                position: values.slice(0, 3),
+                yaw: values[3],
+                pitch: values[4],
+                roll: values[5]
+            });
+            const hashStyle = params.get('style');
+            if (hashStyle) setVisualStyle(hashStyle);
+            const hashQuality = params.get('quality');
+            if (hashQuality) applyRenderQuality(hashQuality);
+            logEvent('hash_view_apply', {});
         }
 
         function updateRecordingStatus() {
@@ -1501,6 +1645,8 @@
             }
             syncLookAnglesFromCamera();
             applyFirstPersonLook();
+            applyRenderQuality(currentQuality);
+            applyHashView();
             createPOIMarkers();
             gameLoop();
             showToast('拖动鼠标转头 · WASD 平面移动');
