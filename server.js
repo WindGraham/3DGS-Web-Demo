@@ -47,6 +47,11 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    if (req.method === 'POST' && pathname === '/api/delete-screenshot') {
+        deleteScreenshot(req, res);
+        return;
+    }
+
     // Route /models/train.ply to the actual file
     if (pathname === '/models/train.ply') {
         serveFile(res, MODEL_PATH, 'application/octet-stream', true);
@@ -128,7 +133,11 @@ function saveScreenshot(req, res) {
 
             fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `3dgs_capture_${timestamp}.png`;
+            const hint = String(payload.filenameHint || 'capture')
+                .replace(/[\\/:*?"<>|]/g, '')
+                .replace(/\s+/g, '_')
+                .slice(0, 64);
+            const filename = `3dgs_${hint}_${timestamp}.png`;
             const filePath = path.join(SCREENSHOT_DIR, filename);
             fs.writeFileSync(filePath, Buffer.from(match[1], 'base64'));
 
@@ -137,6 +146,35 @@ function saveScreenshot(req, res) {
                 ok: true,
                 file: path.relative(__dirname, filePath)
             }));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+        }
+    });
+}
+
+function deleteScreenshot(req, res) {
+    let body = '';
+    req.on('data', (chunk) => {
+        body += chunk;
+    });
+
+    req.on('end', () => {
+        try {
+            const payload = JSON.parse(body || '{}');
+            const file = String(payload.file || '').replace(/\\/g, '/');
+            const base = path.basename(file);
+            if (!base || !base.endsWith('.png')) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: false, error: 'Invalid filename' }));
+                return;
+            }
+            const filePath = path.join(SCREENSHOT_DIR, base);
+            if (filePath.startsWith(SCREENSHOT_DIR) && fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
         } catch (err) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: err.message }));
