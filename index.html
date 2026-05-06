@@ -921,6 +921,67 @@
         const metricPoi = document.getElementById('metric-poi');
         const metricPhotos = document.getElementById('metric-photos');
 
+        const sceneOptions = [
+            {
+                id: 'train',
+                title: 'Train 30k 全量',
+                status: '已接入',
+                note: '267 MB / 约108万高斯 / 当前主展示',
+                version: '30,000 steps',
+                gaussians: '~108万',
+                size: '267 MB',
+                quality: '最高质量，加载最慢'
+            },
+            {
+                id: 'train7k',
+                title: 'Train 7k 快速版',
+                status: '已接入',
+                note: '184 MB / 早期迭代 / 加载更快',
+                version: '7,000 steps',
+                gaussians: '约74万',
+                size: '184 MB',
+                quality: '训练较短，细节更少'
+            },
+            {
+                id: 'sh0',
+                title: 'Train SH=0 消融',
+                status: '已接入',
+                note: '72 MB / 无球谐颜色 / 更轻量',
+                version: 'SH degree 0',
+                gaussians: '约29万',
+                size: '72 MB',
+                quality: '观察去掉视角相关颜色后的效果'
+            },
+            {
+                id: 'isotropic',
+                title: 'Train Isotropic 消融',
+                status: '已接入',
+                note: '170 MB / 各向同性高斯 / 形状消融',
+                version: 'Isotropic covariance',
+                gaussians: '约68万',
+                size: '170 MB',
+                quality: '观察高斯形状约束带来的质量变化'
+            },
+            {
+                id: 'trainEval',
+                title: 'Train Eval 30k',
+                status: '已接入',
+                note: '271 MB / 复现交付目录 / 对照版本',
+                version: 'Eval 30,000 steps',
+                gaussians: '~109万',
+                size: '271 MB',
+                quality: '用于和最终复现交付结果对照'
+            },
+            { id: 'truck', title: 'Truck 输入点云', status: '仅占位', note: '本地只有 input.ply，非 3DGS 高斯模型', version: '未接入', gaussians: '--', size: '3.7 MB', quality: '暂不送入 3DGS 渲染器' },
+            { id: 'garden', title: 'Garden mesh', status: '仅占位', note: '本地是 mesh.ply，非当前 splat 渲染格式', version: '未接入', gaussians: '--', size: '132 MB', quality: '需要 Three.js mesh 管线或转换' }
+        ];
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeModelId = sceneOptions.some((scene) => scene.id === urlParams.get('model')) ? urlParams.get('model') : 'train';
+        const activeScene = sceneOptions.find((scene) => scene.id === activeModelId) || sceneOptions[0];
+        infoModel.textContent = activeScene.version;
+        infoGaussians.textContent = activeScene.gaussians;
+        loading.querySelector('.sub').textContent = `${activeScene.title} · ${activeScene.note}`;
+
         // ===== Three.js 场景辅助对象 =====
         const threeScene = new THREE.Scene();
 
@@ -1049,64 +1110,6 @@
             balanced: { label: '均衡', ratio: 1 },
             quality: { label: '高清', ratio: 1.45 }
         };
-        const sceneOptions = [
-            {
-                id: 'train',
-                title: 'Train 30k 全量',
-                status: '已接入',
-                note: '267 MB / 约108万高斯 / 当前主展示',
-                version: '30,000 steps',
-                gaussians: '~108万',
-                size: '267 MB',
-                quality: '最高质量，加载最慢'
-            },
-            {
-                id: 'train7k',
-                title: 'Train 7k 快速版',
-                status: '已接入',
-                note: '184 MB / 早期迭代 / 加载更快',
-                version: '7,000 steps',
-                gaussians: '约74万',
-                size: '184 MB',
-                quality: '训练较短，细节更少'
-            },
-            {
-                id: 'sh0',
-                title: 'Train SH=0 消融',
-                status: '已接入',
-                note: '72 MB / 无球谐颜色 / 更轻量',
-                version: 'SH degree 0',
-                gaussians: '约29万',
-                size: '72 MB',
-                quality: '观察去掉视角相关颜色后的效果'
-            },
-            {
-                id: 'isotropic',
-                title: 'Train Isotropic 消融',
-                status: '已接入',
-                note: '170 MB / 各向同性高斯 / 形状消融',
-                version: 'Isotropic covariance',
-                gaussians: '约68万',
-                size: '170 MB',
-                quality: '观察高斯形状约束带来的质量变化'
-            },
-            {
-                id: 'trainEval',
-                title: 'Train Eval 30k',
-                status: '已接入',
-                note: '271 MB / 复现交付目录 / 对照版本',
-                version: 'Eval 30,000 steps',
-                gaussians: '~109万',
-                size: '271 MB',
-                quality: '用于和最终复现交付结果对照'
-            },
-            { id: 'truck', title: 'Truck 输入点云', status: '仅占位', note: '本地只有 input.ply，非 3DGS 高斯模型', version: '未接入', gaussians: '--', size: '3.7 MB', quality: '暂不送入 3DGS 渲染器' },
-            { id: 'garden', title: 'Garden mesh', status: '仅占位', note: '本地是 mesh.ply，非当前 splat 渲染格式', version: '未接入', gaussians: '--', size: '132 MB', quality: '需要 Three.js mesh 管线或转换' }
-        ];
-        const urlParams = new URLSearchParams(window.location.search);
-        const activeModelId = sceneOptions.some((scene) => scene.id === urlParams.get('model')) ? urlParams.get('model') : 'train';
-        const activeScene = sceneOptions.find((scene) => scene.id === activeModelId) || sceneOptions[0];
-
         const pois = [
             {
                 id: 'front',
