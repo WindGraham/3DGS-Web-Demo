@@ -398,6 +398,37 @@
         .scene-card.active { border-color: rgba(147,197,253,0.7); background: rgba(59,130,246,0.18); }
         .scene-card strong { display: block; color: rgba(255,255,255,0.92); }
         .scene-card span { color: rgba(255,255,255,0.55); font-size: 10px; }
+        .form-field {
+            width: 100%;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(0,0,0,0.35);
+            color: rgba(255,255,255,0.92);
+            border-radius: 6px;
+            padding: 7px 9px;
+            font: inherit;
+            resize: vertical;
+        }
+        .form-field + .form-field { margin-top: 6px; }
+        .answer-box {
+            margin-top: 8px;
+            border: 1px solid rgba(147,197,253,0.18);
+            background: rgba(59,130,246,0.12);
+            border-radius: 8px;
+            padding: 8px;
+            color: rgba(255,255,255,0.82);
+            line-height: 1.55;
+            min-height: 42px;
+        }
+        .portrait-preview {
+            width: 100%;
+            max-height: 120px;
+            object-fit: contain;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            margin-top: 8px;
+            display: none;
+        }
         .info-table {
             display: grid;
             grid-template-columns: 76px minmax(0, 1fr);
@@ -659,6 +690,30 @@
             </div>
             <div class="progress-shell"><div class="progress-bar" id="tour-progress-bar"></div></div>
             <div class="panel-note" id="tour-status">导览未开始。</div>
+            <div class="panel-title" style="margin-top:10px;">路线编辑</div>
+            <label class="range-row">
+                <span>本段时长</span>
+                <input id="route-duration-range" type="range" min="2" max="10" step="0.5" value="4">
+                <span class="range-value" id="route-duration-value">4</span>
+            </label>
+            <div class="panel-grid-2" style="margin-top:8px;">
+                <button class="panel-btn compact-btn" id="route-add-btn">当前视角入路线</button>
+                <button class="panel-btn compact-btn" id="route-delete-btn">删除当前站</button>
+            </div>
+            <div class="panel-grid-2" style="margin-top:6px;">
+                <button class="panel-btn compact-btn" id="route-export-btn">导出路线</button>
+                <button class="panel-btn compact-btn" id="route-import-btn">导入路线</button>
+            </div>
+            <input id="route-import-input" type="file" accept="application/json,.json" hidden>
+        </div>
+        <div class="panel-section">
+            <div class="panel-title">智能问答 / RAG 模拟</div>
+            <textarea class="form-field" id="qa-question" rows="2" placeholder="例如：3DGS 相比全景图有什么优势？"></textarea>
+            <div class="panel-grid-2" style="margin-top:6px;">
+                <button class="panel-btn compact-btn" id="qa-ask-btn">生成回答</button>
+                <button class="panel-btn compact-btn" id="qa-speak-btn">朗读回答</button>
+            </div>
+            <div class="answer-box" id="qa-answer">输入问题后，会从本地知识库检索并生成讲解回答。</div>
         </div>
         <div class="panel-section">
             <div class="panel-title">视角书签</div>
@@ -692,8 +747,33 @@
             <div class="panel-title">视频导出</div>
             <div class="panel-list">
                 <button class="panel-btn" id="record-btn">开始录制 WebM</button>
+                <button class="panel-btn" id="auto-record-btn">自动录制导览</button>
             </div>
             <div class="panel-note" id="record-status">未录制。</div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-title">虚拟合影</div>
+            <input class="form-field" id="portrait-input" type="file" accept="image/png,image/jpeg,image/webp">
+            <img class="portrait-preview" id="portrait-preview" alt="">
+            <label class="range-row">
+                <span>人物大小</span>
+                <input id="portrait-scale-range" type="range" min="0.15" max="0.9" step="0.05" value="0.38">
+                <span class="range-value" id="portrait-scale-value">0.38</span>
+            </label>
+            <label class="range-row">
+                <span>水平位置</span>
+                <input id="portrait-x-range" type="range" min="0.1" max="0.9" step="0.05" value="0.72">
+                <span class="range-value" id="portrait-x-value">0.72</span>
+            </label>
+            <label class="range-row">
+                <span>垂直位置</span>
+                <input id="portrait-y-range" type="range" min="0.25" max="0.95" step="0.05" value="0.78">
+                <span class="range-value" id="portrait-y-value">0.78</span>
+            </label>
+            <div class="panel-grid-2" style="margin-top:6px;">
+                <button class="panel-btn compact-btn active" id="portrait-toggle-btn">合影开启</button>
+                <button class="panel-btn compact-btn" id="portrait-clear-btn">清除人物</button>
+            </div>
         </div>
         </div>
         <div class="panel-page" data-panel-page="settings">
@@ -750,6 +830,19 @@
             </div>
             <button class="panel-btn compact-btn" id="share-view-btn" style="margin-top:6px;">复制当前视角链接</button>
             <button class="panel-btn compact-btn" id="add-hotspot-btn" style="margin-top:6px;">当前位置添加热点</button>
+            <div class="panel-title" style="margin-top:10px;">热点编辑</div>
+            <input class="form-field" id="hotspot-title-input" placeholder="热点标题">
+            <input class="form-field" id="hotspot-category-input" placeholder="分类，例如 历史背景">
+            <textarea class="form-field" id="hotspot-text-input" rows="4" placeholder="热点讲解词"></textarea>
+            <div class="panel-grid-2" style="margin-top:6px;">
+                <button class="panel-btn compact-btn" id="hotspot-save-btn">保存热点</button>
+                <button class="panel-btn compact-btn" id="hotspot-delete-btn">删除热点</button>
+            </div>
+            <div class="panel-grid-2" style="margin-top:6px;">
+                <button class="panel-btn compact-btn" id="hotspot-export-btn">导出热点</button>
+                <button class="panel-btn compact-btn" id="hotspot-import-btn">导入热点</button>
+            </div>
+            <input id="hotspot-import-input" type="file" accept="application/json,.json" hidden>
             <div class="panel-title" style="margin-top:10px;">多场景入口</div>
             <div class="panel-list" id="scene-list"></div>
         </div>
@@ -865,6 +958,7 @@
         const panelPages = document.querySelectorAll('[data-panel-page]');
         const styleButtons = document.querySelectorAll('[data-style]');
         const recordBtn = document.getElementById('record-btn');
+        const autoRecordBtn = document.getElementById('auto-record-btn');
         const recordStatus = document.getElementById('record-status');
         const tourPrevBtn = document.getElementById('tour-prev-btn');
         const tourToggleBtn = document.getElementById('tour-toggle-btn');
@@ -893,6 +987,17 @@
         const summaryPhotos = document.getElementById('summary-photos');
         const summaryLastEvent = document.getElementById('summary-last-event');
         const touchPhotoBtn = document.getElementById('touch-photo-btn');
+        const routeDurationRange = document.getElementById('route-duration-range');
+        const routeDurationValue = document.getElementById('route-duration-value');
+        const routeAddBtn = document.getElementById('route-add-btn');
+        const routeDeleteBtn = document.getElementById('route-delete-btn');
+        const routeExportBtn = document.getElementById('route-export-btn');
+        const routeImportBtn = document.getElementById('route-import-btn');
+        const routeImportInput = document.getElementById('route-import-input');
+        const qaQuestion = document.getElementById('qa-question');
+        const qaAnswer = document.getElementById('qa-answer');
+        const qaAskBtn = document.getElementById('qa-ask-btn');
+        const qaSpeakBtn = document.getElementById('qa-speak-btn');
         const autoVoiceBtn = document.getElementById('auto-voice-btn');
         const replayVoiceBtn = document.getElementById('replay-voice-btn');
         const stopVoiceBtn = document.getElementById('stop-voice-btn');
@@ -912,6 +1017,24 @@
         const summaryPath = document.getElementById('summary-path');
         const trackToggleBtn = document.getElementById('track-toggle-btn');
         const trackClearBtn = document.getElementById('track-clear-btn');
+        const hotspotTitleInput = document.getElementById('hotspot-title-input');
+        const hotspotCategoryInput = document.getElementById('hotspot-category-input');
+        const hotspotTextInput = document.getElementById('hotspot-text-input');
+        const hotspotSaveBtn = document.getElementById('hotspot-save-btn');
+        const hotspotDeleteBtn = document.getElementById('hotspot-delete-btn');
+        const hotspotExportBtn = document.getElementById('hotspot-export-btn');
+        const hotspotImportBtn = document.getElementById('hotspot-import-btn');
+        const hotspotImportInput = document.getElementById('hotspot-import-input');
+        const portraitInput = document.getElementById('portrait-input');
+        const portraitPreview = document.getElementById('portrait-preview');
+        const portraitScaleRange = document.getElementById('portrait-scale-range');
+        const portraitScaleValue = document.getElementById('portrait-scale-value');
+        const portraitXRange = document.getElementById('portrait-x-range');
+        const portraitXValue = document.getElementById('portrait-x-value');
+        const portraitYRange = document.getElementById('portrait-y-range');
+        const portraitYValue = document.getElementById('portrait-y-value');
+        const portraitToggleBtn = document.getElementById('portrait-toggle-btn');
+        const portraitClearBtn = document.getElementById('portrait-clear-btn');
         const metricFps = document.getElementById('metric-fps');
         const metricTime = document.getElementById('metric-time');
         const metricMode = document.getElementById('metric-mode');
@@ -1096,8 +1219,17 @@
         let helpersVisible = true;
         let autoNarration = true;
         let lastNarrationText = '';
+        let lastQaAnswer = '';
+        let autoTourRecording = false;
+        let autoTourTimer = null;
         let trajectoryEnabled = true;
         let lastTrajectorySample = 0;
+        let portraitEnabled = true;
+        let portraitImage = null;
+        let portraitDataUrl = '';
+        let portraitScale = 0.38;
+        let portraitX = 0.72;
+        let portraitY = 0.78;
         const savedPhotos = [];
         const sessionEvents = [];
         const poiLabelElements = [];
@@ -1105,11 +1237,19 @@
         const poiPath = [];
         const poiDwell = {};
         const trajectory = [];
+        const defaultPoiCount = 6;
         const qualitySettings = {
             performance: { label: '流畅', ratio: 0.75 },
             balanced: { label: '均衡', ratio: 1 },
             quality: { label: '高清', ratio: 1.45 }
         };
+        const knowledgeBase = [
+            { title: '3DGS 优势', keywords: ['3dgs', '优势', '全景图', '自由探索'], text: '3DGS 相比全景图的核心优势是自由视角。全景图只能在固定点位转头，而 3DGS 可以让游客在连续空间里移动，靠近细节、绕开遮挡，并保持较强的照片级观感。' },
+            { title: '数字保存', keywords: ['保存', '数字', '档案', '遗产'], text: '文旅数字保存不只是生成一个模型，还要保存采集照片、相机位姿、点云、高斯模型、讲解词、路线和评估记录。这样后续可以复建、更新、教学和展陈。' },
+            { title: 'RAG 讲解', keywords: ['rag', 'llm', '问答', '知识库', '讲解'], text: 'RAG 可以把景点资料、历史文本、考古说明和导览词组织成本地知识库。游客提问后，系统先检索相关资料，再让大模型生成回答，从而减少凭空编造。' },
+            { title: '性能方案', keywords: ['性能', '卡顿', '手机', '轻量', '分块'], text: '面向手机和弱设备，可以使用轻量模型、分块加载、多精度模型、降低渲染倍率、隐藏标注，以及服务端渲染或视频流方案。当前 demo 已经提供轻量模型和画质档位。' },
+            { title: '合影明信片', keywords: ['合影', '明信片', '分享', '照片'], text: '合影明信片把一次浏览转化为可分享内容。轻量实现可以先上传人物图片并叠加到截图，后续再用人像分割或 3D 化身生成更真实的站进场景效果。' }
+        ];
         const pois = [
             {
                 id: 'front',
@@ -1305,6 +1445,33 @@
             update();
         }
 
+        function downloadJson(filename, payload) {
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function readJsonFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        resolve(JSON.parse(reader.result));
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(file);
+            });
+        }
+
         function speak(text) {
             if (!('speechSynthesis' in window)) {
                 showToast('当前浏览器不支持语音讲解');
@@ -1396,6 +1563,15 @@
             }
             if (shouldSpeak && autoNarration) speak(`${poi.title}。${poi.text}`);
             logEvent('poi_select', { id: poi.id, title: poi.title, speak: shouldSpeak });
+            fillHotspotEditor(index);
+        }
+
+        function fillHotspotEditor(index) {
+            const poi = pois[index];
+            if (!poi) return;
+            hotspotTitleInput.value = poi.title || '';
+            hotspotCategoryInput.value = poi.category || '';
+            hotspotTextInput.value = poi.text || '';
         }
 
         function buildPanelLists() {
@@ -1578,6 +1754,40 @@
             showToast('开始录制当前画面');
         }
 
+        function startAutoTourRecording() {
+            if (!viewer.renderer) return;
+            if (autoTourRecording) {
+                stopAutoTourRecording();
+                return;
+            }
+            setMode('tour');
+            restartTour();
+            if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+                toggleRecording();
+            }
+            autoTourRecording = true;
+            autoRecordBtn.textContent = '停止自动录制';
+            const routeSeconds = tourRoute.reduce((sum, step) => sum + (step.duration || 4), 0) / tourSpeeds[tourSpeedIndex];
+            autoTourTimer = setTimeout(() => stopAutoTourRecording(), Math.max(6000, routeSeconds * 1000 + 1200));
+            logEvent('auto_tour_record_start', { routeSeconds });
+            showToast('开始自动录制导览');
+        }
+
+        function stopAutoTourRecording() {
+            autoTourRecording = false;
+            autoRecordBtn.textContent = '自动录制导览';
+            if (autoTourTimer) {
+                clearTimeout(autoTourTimer);
+                autoTourTimer = null;
+            }
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            setMode('free');
+            logEvent('auto_tour_record_stop', {});
+            showToast('自动导览录制结束');
+        }
+
         function getCompassHeading(direction) {
             // 计算偏航角（相对于Z轴负方向）
             const angle = Math.atan2(direction.x, direction.z);
@@ -1656,7 +1866,22 @@
             ctx.filter = captureFilter(currentStyle);
             ctx.drawImage(sourceCanvas, 0, 0);
             ctx.filter = 'none';
+            drawPortraitOverlay(ctx, output.width, output.height);
             return output;
+        }
+
+        function drawPortraitOverlay(ctx, width, height) {
+            if (!portraitEnabled || !portraitImage) return;
+            const targetHeight = height * portraitScale;
+            const aspect = portraitImage.width / portraitImage.height;
+            const targetWidth = targetHeight * aspect;
+            const x = width * portraitX - targetWidth / 2;
+            const y = height * portraitY - targetHeight;
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.45)';
+            ctx.shadowBlur = Math.max(8, width * 0.008);
+            ctx.drawImage(portraitImage, x, y, targetWidth, targetHeight);
+            ctx.restore();
         }
 
         function makePostcardImage(sourceCanvas) {
@@ -1852,6 +2077,18 @@
             button.addEventListener('click', () => applyRenderQuality(button.dataset.quality));
         });
         recordBtn.addEventListener('click', () => toggleRecording());
+        autoRecordBtn.addEventListener('click', () => startAutoTourRecording());
+        routeAddBtn.addEventListener('click', () => addRouteFromCurrentView());
+        routeDeleteBtn.addEventListener('click', () => deleteCurrentRoutePoint());
+        routeExportBtn.addEventListener('click', () => exportRoute());
+        routeImportBtn.addEventListener('click', () => routeImportInput.click());
+        routeImportInput.addEventListener('change', () => {
+            const file = routeImportInput.files?.[0];
+            if (file) importRoute(file);
+            routeImportInput.value = '';
+        });
+        qaAskBtn.addEventListener('click', () => askLocalKnowledge());
+        qaSpeakBtn.addEventListener('click', () => speakQaAnswer());
         autoVoiceBtn.addEventListener('click', () => {
             autoNarration = !autoNarration;
             autoVoiceBtn.classList.toggle('active', autoNarration);
@@ -1888,6 +2125,15 @@
             showToast('初始高度：高位');
         });
         addHotspotBtn.addEventListener('click', () => addHotspotFromCurrentView());
+        hotspotSaveBtn.addEventListener('click', () => saveActiveHotspot());
+        hotspotDeleteBtn.addEventListener('click', () => deleteActiveHotspot());
+        hotspotExportBtn.addEventListener('click', () => exportHotspots());
+        hotspotImportBtn.addEventListener('click', () => hotspotImportInput.click());
+        hotspotImportInput.addEventListener('change', () => {
+            const file = hotspotImportInput.files?.[0];
+            if (file) importHotspots(file);
+            hotspotImportInput.value = '';
+        });
         tourPrevBtn.addEventListener('click', () => {
             if (appMode !== 'tour') setMode('tour');
             jumpTour(-1);
@@ -1926,6 +2172,36 @@
             showToast('已清空轨迹');
         });
         touchPhotoBtn.addEventListener('click', () => capturePhoto());
+        portraitInput.addEventListener('change', () => {
+            const file = portraitInput.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                portraitDataUrl = reader.result;
+                portraitPreview.src = portraitDataUrl;
+                portraitPreview.style.display = 'block';
+                portraitImage = new Image();
+                portraitImage.src = portraitDataUrl;
+                logEvent('portrait_upload', { name: file.name });
+                showToast('已载入合影人物图');
+            };
+            reader.readAsDataURL(file);
+        });
+        portraitToggleBtn.addEventListener('click', () => {
+            portraitEnabled = !portraitEnabled;
+            portraitToggleBtn.classList.toggle('active', portraitEnabled);
+            portraitToggleBtn.textContent = portraitEnabled ? '合影开启' : '合影关闭';
+            logEvent('portrait_toggle', { enabled: portraitEnabled });
+        });
+        portraitClearBtn.addEventListener('click', () => {
+            portraitDataUrl = '';
+            portraitImage = null;
+            portraitInput.value = '';
+            portraitPreview.removeAttribute('src');
+            portraitPreview.style.display = 'none';
+            logEvent('portrait_clear', {});
+            showToast('已清除人物图');
+        });
         document.querySelectorAll('[data-touch-key]').forEach((button) => {
             const key = button.dataset.touchKey;
             const setKey = (value) => {
@@ -1953,6 +2229,18 @@
         bindRange(captureRange, captureRangeValue, (value) => {
             captureMultiplier = value;
         });
+        bindRange(routeDurationRange, routeDurationValue, (value) => {
+            if (tourRoute[tourSegment]) tourRoute[tourSegment].duration = value;
+        });
+        bindRange(portraitScaleRange, portraitScaleValue, (value) => {
+            portraitScale = value;
+        });
+        bindRange(portraitXRange, portraitXValue, (value) => {
+            portraitX = value;
+        });
+        bindRange(portraitYRange, portraitYValue, (value) => {
+            portraitY = value;
+        });
         buildPanelLists();
         buildPOILabels();
         updateTourControls();
@@ -1971,6 +2259,10 @@
             tourToggleBtn.textContent = tourPaused ? '继续' : '暂停';
             tourSpeedBtn.textContent = `速度 ${tourSpeeds[tourSpeedIndex].toFixed(1)}x`;
             tourProgressBar.style.width = `${percent}%`;
+            if (tourRoute[tourSegment]) {
+                routeDurationRange.value = tourRoute[tourSegment].duration || 4;
+                routeDurationValue.textContent = routeDurationRange.value;
+            }
             tourStatus.textContent = appMode === 'tour'
                 ? `第 ${tourSegment + 1}/${tourRoute.length} 段 · 目标：${poiName} · ${percent}%${tourPaused ? ' · 已暂停' : ''}`
                 : '导览未开始。';
@@ -2150,16 +2442,16 @@
 
         function addHotspotFromCurrentView() {
             if (!viewer.camera) return;
-            const title = `自定义热点 ${pois.length + 1}`;
+            const title = hotspotTitleInput.value.trim() || `自定义热点 ${pois.length + 1}`;
             const position = viewer.camera.position.clone().addScaledVector(lookDirection, 2.2);
             const poi = {
                 id: `custom-${Date.now()}`,
                 title,
-                category: '用户标注',
+                category: hotspotCategoryInput.value.trim() || '用户标注',
                 stay: '建议停留 15s',
                 narration: '约 20s',
                 position,
-                text: '这是演示用的临时热点，表示系统可以支持现场配置点位。实际应用中可把位置、标题、讲解词和图片资料写入景点知识库。'
+                text: hotspotTextInput.value.trim() || '这是演示用的临时热点，表示系统可以支持现场配置点位。实际应用中可把位置、标题、讲解词和图片资料写入景点知识库。'
             };
             pois.push(poi);
             tourRoute.push({
@@ -2176,6 +2468,87 @@
             selectPOI(pois.length - 1, false);
             logEvent('hotspot_add', { id: poi.id, title });
             showToast('已添加临时热点');
+        }
+
+        function saveActiveHotspot() {
+            if (activePoiIndex === null || !pois[activePoiIndex]) {
+                showToast('请先选择一个热点');
+                return;
+            }
+            const poi = pois[activePoiIndex];
+            poi.title = hotspotTitleInput.value.trim() || poi.title;
+            poi.category = hotspotCategoryInput.value.trim() || poi.category;
+            poi.text = hotspotTextInput.value.trim() || poi.text;
+            buildPanelLists();
+            buildPOILabels();
+            selectPOI(activePoiIndex, false);
+            logEvent('hotspot_save', { id: poi.id, title: poi.title });
+            showToast('已保存热点');
+        }
+
+        function deleteActiveHotspot() {
+            if (activePoiIndex === null || activePoiIndex < defaultPoiCount) {
+                showToast('默认热点不删除；请选择自定义热点');
+                return;
+            }
+            const removed = pois.splice(activePoiIndex, 1)[0];
+            for (let i = tourRoute.length - 1; i >= 0; i -= 1) {
+                if (tourRoute[i].poi === activePoiIndex) tourRoute.splice(i, 1);
+                else if (tourRoute[i].poi > activePoiIndex) tourRoute[i].poi -= 1;
+            }
+            markerMeshes.forEach((marker) => threeScene.remove(marker));
+            markerMeshes.length = 0;
+            activePoiIndex = null;
+            buildPanelLists();
+            buildPOILabels();
+            createPOIMarkers();
+            poiDetail.textContent = '选择一个点位查看讲解。';
+            logEvent('hotspot_delete', { id: removed.id, title: removed.title });
+            showToast('已删除自定义热点');
+        }
+
+        function exportHotspots() {
+            downloadJson(`3dgs_hotspots_${new Date().toISOString().replace(/[:.]/g, '-')}.json`, {
+                scene: activeModelId,
+                hotspots: pois.map((poi) => ({
+                    id: poi.id,
+                    title: poi.title,
+                    category: poi.category,
+                    stay: poi.stay,
+                    narration: poi.narration,
+                    position: poi.position.toArray(),
+                    text: poi.text
+                }))
+            });
+            logEvent('hotspots_export', { count: pois.length });
+        }
+
+        async function importHotspots(file) {
+            try {
+                const payload = await readJsonFile(file);
+                const incoming = Array.isArray(payload.hotspots) ? payload.hotspots : [];
+                pois.splice(defaultPoiCount);
+                incoming.slice(defaultPoiCount).forEach((item) => {
+                    pois.push({
+                        id: item.id || `custom-${Date.now()}-${Math.random()}`,
+                        title: item.title || '导入热点',
+                        category: item.category || '用户标注',
+                        stay: item.stay || '建议停留 15s',
+                        narration: item.narration || '约 20s',
+                        position: new THREE.Vector3().fromArray(item.position || [0, -0.25, 4]),
+                        text: item.text || '导入的热点讲解。'
+                    });
+                });
+                markerMeshes.forEach((marker) => threeScene.remove(marker));
+                markerMeshes.length = 0;
+                buildPanelLists();
+                buildPOILabels();
+                createPOIMarkers();
+                logEvent('hotspots_import', { count: incoming.length });
+                showToast('已导入热点 JSON');
+            } catch (err) {
+                showToast(`导入失败：${err.message}`);
+            }
         }
 
         function createPOIMarker(poi) {
@@ -2225,6 +2598,92 @@
                 yaw: Number(yaw.toFixed(4))
             });
             if (trajectory.length > 1200) trajectory.shift();
+        }
+
+        function addRouteFromCurrentView() {
+            if (!viewer.camera) return;
+            tourRoute.push({
+                name: `自定义路线点 ${tourRoute.length + 1}`,
+                position: [viewer.camera.position.x, viewer.camera.position.y, viewer.camera.position.z],
+                yaw,
+                pitch,
+                duration: Number(routeDurationRange.value) || 4,
+                poi: activePoiIndex
+            });
+            tourSegment = tourRoute.length - 1;
+            updateTourControls();
+            logEvent('route_add', { segment: tourSegment });
+            showToast('已把当前视角加入导览路线');
+        }
+
+        function deleteCurrentRoutePoint() {
+            if (tourRoute.length <= 2) {
+                showToast('路线至少保留 2 个点');
+                return;
+            }
+            const removed = tourRoute.splice(tourSegment, 1)[0];
+            tourSegment = Math.min(tourSegment, tourRoute.length - 1);
+            tourProgress = 0;
+            updateTourControls();
+            logEvent('route_delete', { name: removed.name });
+            showToast('已删除当前路线点');
+        }
+
+        function exportRoute() {
+            downloadJson(`3dgs_route_${new Date().toISOString().replace(/[:.]/g, '-')}.json`, {
+                scene: activeModelId,
+                route: tourRoute
+            });
+            logEvent('route_export', { count: tourRoute.length });
+        }
+
+        async function importRoute(file) {
+            try {
+                const payload = await readJsonFile(file);
+                const route = Array.isArray(payload.route) ? payload.route : [];
+                if (route.length < 2) throw new Error('路线点不足');
+                tourRoute.splice(0, tourRoute.length, ...route.map((step, index) => ({
+                    name: step.name || `导入路线点 ${index + 1}`,
+                    position: Array.isArray(step.position) ? step.position : [0, -0.25, 8],
+                    yaw: Number(step.yaw) || Math.PI,
+                    pitch: Number(step.pitch) || 0,
+                    duration: Number(step.duration) || 4,
+                    poi: typeof step.poi === 'number' ? step.poi : null
+                })));
+                tourSegment = 0;
+                tourProgress = 0;
+                updateTourControls();
+                logEvent('route_import', { count: tourRoute.length });
+                showToast('已导入导览路线');
+            } catch (err) {
+                showToast(`导入失败：${err.message}`);
+            }
+        }
+
+        function askLocalKnowledge() {
+            const question = qaQuestion.value.trim();
+            if (!question) {
+                qaAnswer.textContent = '请先输入一个问题。';
+                return;
+            }
+            const lower = question.toLowerCase();
+            const scored = knowledgeBase
+                .map((item) => ({
+                    item,
+                    score: item.keywords.reduce((sum, key) => sum + (lower.includes(key.toLowerCase()) ? 2 : 0), 0) +
+                        (question.includes(item.title) ? 1 : 0)
+                }))
+                .sort((a, b) => b.score - a.score);
+            const top = scored.filter((entry) => entry.score > 0).slice(0, 2);
+            const sources = top.length ? top : scored.slice(0, 2);
+            lastQaAnswer = `问题：${question}\n\n回答：${sources.map((entry) => entry.item.text).join(' ')}\n\n依据：${sources.map((entry) => entry.item.title).join('、')}`;
+            qaAnswer.textContent = lastQaAnswer;
+            logEvent('qa_answer', { question, sources: sources.map((entry) => entry.item.title) });
+        }
+
+        function speakQaAnswer() {
+            if (!lastQaAnswer) askLocalKnowledge();
+            if (lastQaAnswer) speak(lastQaAnswer);
         }
 
         function drawRadar() {
